@@ -8,9 +8,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { useNoIndex } from '@/hooks/use-no-index';
 import sizeguideHero from '@/assets/sizeguide-hero.jpg';
 
 const SizeGuide = () => {
+  useNoIndex();
+
   return (
     <Layout hasHero>
       {/* Hero */}
@@ -18,7 +21,7 @@ const SizeGuide = () => {
         <div className="absolute inset-0">
           <img
             src={sizeguideHero}
-            alt="Amore Size Guide"
+            alt="RAR Studio Size Guide"
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-foreground/30" />

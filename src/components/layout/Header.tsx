@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, ShoppingBag, Search } from 'lucide-react';
 import { useCartTotalItems, useCartStore } from '@/store/cartStore';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { productsService, Product } from '@/services/products';
+import { formatPrice } from '@/data/store';
 
 interface HeaderProps {
   hasHero?: boolean;
@@ -11,9 +13,63 @@ interface HeaderProps {
 const Header = ({ hasHero = false }: HeaderProps) => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [query, setQuery] = useState('');
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [productsLoaded, setProductsLoaded] = useState(false);
   const totalItems = useCartTotalItems();
   const { openCart } = useCartStore();
   const location = useLocation();
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Fetch the product list once, the first time the search panel opens
+  useEffect(() => {
+    if (!isSearchOpen || productsLoaded) return;
+    const fetchProducts = async () => {
+      const { data } = await productsService.getProducts();
+      if (data) setAllProducts(data);
+      setProductsLoaded(true);
+    };
+    fetchProducts();
+  }, [isSearchOpen, productsLoaded]);
+
+  const closeSearch = () => {
+    setIsSearchOpen(false);
+    setQuery('');
+  };
+
+  // Close on route change
+  useEffect(() => {
+    closeSearch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!isSearchOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        closeSearch();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isSearchOpen]);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!isSearchOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeSearch();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isSearchOpen]);
+
+  const searchResults = query.trim()
+    ? allProducts
+        .filter((p) => p.name.toLowerCase().includes(query.trim().toLowerCase()))
+        .slice(0, 6)
+    : [];
 
   useEffect(() => {
     const handleScroll = () => {
@@ -32,9 +88,6 @@ const Header = ({ hasHero = false }: HeaderProps) => {
   }, [hasHero]);
 
   const navLinks = [
-    { href: '/collections', label: 'Collections' },
-    { href: '/about', label: 'About' },
-    { href: '/size-guide', label: 'Size Guide' },
     { href: '/contact', label: 'Contact' },
   ];
 
@@ -73,32 +126,17 @@ const Header = ({ hasHero = false }: HeaderProps) => {
             </SheetContent>
           </Sheet>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-10">
-            {navLinks.slice(0, 2).map((link) => (
-              <Link
-                key={link.href}
-                to={link.href}
-                className={`text-sm font-light tracking-wider uppercase transition-opacity hover:opacity-60 ${
-                  isTransparent ? 'text-background' : ''
-                } ${isActive(link.href) ? 'opacity-100' : 'opacity-80'}`}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-
           {/* Logo */}
           <Link to="/" className="absolute left-1/2 -translate-x-1/2">
-            <h1 className={`font-serif text-2xl lg:text-3xl tracking-widest ${isTransparent ? 'text-background' : ''}`}>
-              amore
+            <h1 className={`font-serif font-bold text-2xl lg:text-3xl tracking-widest ${isTransparent ? 'text-background' : ''}`}>
+              RAR
             </h1>
           </Link>
 
           {/* Right Navigation */}
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-6 ml-auto">
             <nav className="hidden lg:flex items-center gap-10">
-              {navLinks.slice(2).map((link) => (
+              {navLinks.map((link) => (
                 <Link
                   key={link.href}
                   to={link.href}
@@ -112,7 +150,7 @@ const Header = ({ hasHero = false }: HeaderProps) => {
             </nav>
 
             <button
-              onClick={() => setIsSearchOpen(!isSearchOpen)}
+              onClick={() => (isSearchOpen ? closeSearch() : setIsSearchOpen(true))}
               className={`p-2 hover:opacity-60 transition-opacity ${isTransparent ? 'text-background' : ''}`}
             >
               <Search className="h-4 w-4" />
@@ -136,21 +174,54 @@ const Header = ({ hasHero = false }: HeaderProps) => {
 
         {/* Search Bar */}
         {isSearchOpen && (
-          <div className="py-4 border-t border-border animate-in fade-in slide-in-from-top-2 duration-200">
+          <div ref={searchContainerRef} className="py-4 border-t border-border animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="relative">
               <input
                 type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search products..."
-                className="w-full bg-transparent border-b border-border py-2 text-sm focus:outline-none focus:border-foreground transition-colors"
+                className="w-full bg-transparent border-b border-border py-2 pr-8 text-sm focus:outline-none focus:border-foreground transition-colors"
                 autoFocus
               />
               <button
-                onClick={() => setIsSearchOpen(false)}
+                onClick={closeSearch}
                 className="absolute right-0 top-1/2 -translate-y-1/2 p-2"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
+
+            {query.trim() && (
+              <div className="mt-2 max-h-96 overflow-y-auto bg-background border border-border shadow-lg">
+                {searchResults.length > 0 ? (
+                  searchResults.map((product) => (
+                    <Link
+                      key={product.id}
+                      to={`/product/${product.id}`}
+                      onClick={closeSearch}
+                      className="flex items-center gap-4 p-3 hover:bg-secondary transition-colors"
+                    >
+                      <div className="w-12 h-16 bg-secondary flex-shrink-0 overflow-hidden">
+                        {product.image_front && (
+                          <img
+                            src={product.image_front}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-light truncate">{product.name}</p>
+                        <p className="text-xs text-muted-foreground">{formatPrice(Number(product.price))}</p>
+                      </div>
+                    </Link>
+                  ))
+                ) : (
+                  <p className="p-4 text-sm text-muted-foreground text-center">No products found</p>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

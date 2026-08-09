@@ -1,25 +1,35 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
 import Layout from '@/components/layout/Layout';
 import ProductCard from '@/components/ProductCard';
 import ProductCardSkeleton from '@/components/ProductCardSkeleton';
+import SiteMediaRotator from '@/components/SiteMediaRotator';
 import { productsService, Product } from '@/services/products';
-import heroImage from '@/assets/hero-main.jpg';
-import collectionEvening from '@/assets/collection-evening.jpg';
-import collectionSummer from '@/assets/collection-summer.jpg';
+import { useSitePage } from '@/contexts/SiteContentContext';
+import { useSeo } from '@/hooks/use-seo';
+import { absoluteUrl, buildOrganizationJsonLd, buildWebsiteJsonLd } from '@/lib/seo';
 
 const Index = () => {
-  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const home = useSitePage('home');
+  const contact = useSitePage('contact');
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const heroImage = home.hero.media.find((item) => item.type === 'image');
+  useSeo({
+    title: 'RAR Studio | Timeless Luxury Fashion',
+    description: home.hero.body,
+    canonicalPath: '/',
+    image: heroImage ? absoluteUrl(heroImage.url) : undefined,
+    jsonLd: [buildOrganizationJsonLd(contact.info), buildWebsiteJsonLd()],
+  });
 
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
       const { data } = await productsService.getProducts();
       if (data) {
-        const featured = data.filter((p) => p.featured).slice(0, 4);
-        setFeaturedProducts(featured);
+        setProducts(data);
       }
       setLoading(false);
     };
@@ -32,77 +42,54 @@ const Index = () => {
       {/* Hero Section */}
       <section className="relative h-[90vh] flex items-center">
         <div className="absolute inset-0">
-          <img
-            src={heroImage}
-            alt="Amore Collection"
+          <SiteMediaRotator
+            items={home.hero.media}
+            intervalSeconds={home.media_rotation_seconds}
             className="w-full h-full object-cover"
+            priority
           />
           <div className="absolute inset-0 bg-foreground/30" />
         </div>
         <div className="relative container mx-auto px-6">
           <div className="max-w-xl">
             <p className="text-xs tracking-[0.3em] uppercase mb-4 text-background/80">
-              New Collection
+              {home.hero.eyebrow}
             </p>
             <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-light leading-tight mb-6 text-background">
-              Timeless Elegance
+              {home.hero.title}
             </h1>
             <p className="text-base font-light leading-relaxed mb-8 text-background/80 max-w-md">
-              Discover our debut collection of refined essentials, crafted for the modern woman.
+              {home.hero.body}
             </p>
-            <Link
-              to="/collections"
-              className="inline-flex items-center gap-3 text-sm tracking-widest uppercase border-b border-background text-background pb-2 hover:opacity-70 transition-opacity"
-            >
-              Explore Collection
-              <ArrowRight className="h-4 w-4" />
-            </Link>
           </div>
         </div>
       </section>
 
-      {/* Featured Products */}
+      {/* Products */}
       <section className="py-20 lg:py-28">
         <div className="container mx-auto px-6">
-          <div className="flex justify-between items-end mb-12">
-            <div>
-              <p className="text-xs tracking-[0.2em] uppercase text-muted-foreground mb-2">
-                Curated Selection
-              </p>
-              <h2 className="font-serif text-3xl lg:text-4xl font-light">
-                Featured Pieces
-              </h2>
-            </div>
-            <Link
-              to="/collections"
-              className="hidden md:flex items-center gap-2 text-sm tracking-wide hover:opacity-70 transition-opacity"
-            >
-              View All
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+          <div className="mb-12">
+            <p className="text-xs tracking-[0.2em] uppercase text-muted-foreground mb-2">
+              {home.products.eyebrow}
+            </p>
+            <h2 className="font-serif text-3xl lg:text-4xl font-light">
+              {home.products.title}
+            </h2>
           </div>
 
           {loading ? (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
-              {[...Array(4)].map((_, index) => (
+              {[...Array(8)].map((_, index) => (
                 <ProductCardSkeleton key={index} />
               ))}
             </div>
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
-              {featuredProducts.map((product) => (
+              {products.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
           )}
-
-          <Link
-            to="/collections"
-            className="md:hidden flex items-center justify-center gap-2 text-sm tracking-wide mt-10 hover:opacity-70 transition-opacity"
-          >
-            View All Products
-            <ArrowRight className="h-4 w-4" />
-          </Link>
         </div>
       </section>
 
@@ -111,43 +98,30 @@ const Index = () => {
         <div className="container mx-auto px-6">
           <div className="text-center mb-12">
             <p className="text-xs tracking-[0.2em] uppercase text-muted-foreground mb-2">
-              Explore
+              {home.style.eyebrow}
             </p>
             <h2 className="font-serif text-3xl lg:text-4xl font-light">
-              Shop by Style
+              {home.style.title}
             </h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Link to="/collections" className="group relative overflow-hidden aspect-[4/5]">
-              <img
-                src={collectionSummer}
-                alt="Day Collection"
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
-              <div className="absolute bottom-8 left-8">
-                <p className="text-xs tracking-[0.2em] uppercase text-background/70 mb-2">
-                  Effortless Style
-                </p>
-                <h3 className="font-serif text-2xl text-background">Day to Evening</h3>
-              </div>
-            </Link>
-
-            <Link to="/collections" className="group relative overflow-hidden aspect-[4/5]">
-              <img
-                src={collectionEvening}
-                alt="Evening Collection"
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
-              <div className="absolute bottom-8 left-8">
-                <p className="text-xs tracking-[0.2em] uppercase text-background/70 mb-2">
-                  Sophisticated Elegance
-                </p>
-                <h3 className="font-serif text-2xl text-background">Evening Wear</h3>
-              </div>
-            </Link>
+            {home.style.tiles.map((tile, index) => (
+              <Link key={index} to={tile.href} className="group relative overflow-hidden aspect-[4/5]">
+                <SiteMediaRotator
+                  items={tile.media}
+                  intervalSeconds={home.media_rotation_seconds}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
+                <div className="absolute bottom-8 left-8">
+                  <p className="text-xs tracking-[0.2em] uppercase text-background/70 mb-2">
+                    {tile.eyebrow}
+                  </p>
+                  <h3 className="font-serif text-2xl text-background">{tile.title}</h3>
+                </div>
+              </Link>
+            ))}
           </div>
         </div>
       </section>
@@ -157,18 +131,11 @@ const Index = () => {
         <div className="container mx-auto px-6">
           <div className="max-w-3xl mx-auto text-center">
             <p className="text-xs tracking-[0.2em] uppercase text-muted-foreground mb-4">
-              Our Philosophy
+              {home.philosophy.eyebrow}
             </p>
             <h2 className="font-serif text-3xl lg:text-4xl font-light leading-relaxed mb-6">
-              "True elegance is about feeling beautiful in your own skin. We create pieces that enhance, not overshadow."
+              {home.philosophy.quote}
             </h2>
-            <Link
-              to="/about"
-              className="inline-flex items-center gap-3 text-sm tracking-widest uppercase border-b border-foreground pb-2 hover:opacity-70 transition-opacity"
-            >
-              Our Story
-              <ArrowRight className="h-4 w-4" />
-            </Link>
           </div>
         </div>
       </section>

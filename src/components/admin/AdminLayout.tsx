@@ -5,6 +5,7 @@ import {
   Package,
   FolderOpen,
   ShoppingCart,
+  FileText,
   Menu,
   X,
   ExternalLink,
@@ -39,6 +40,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     { href: '/admin/products', label: 'Products', icon: Package },
     { href: '/admin/collections', label: 'Collections', icon: FolderOpen },
     { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
+    { href: '/admin/site-content', label: 'Site Content', icon: FileText },
   ];
 
   const isActive = (path: string) => {
@@ -55,7 +57,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
         <button onClick={() => setIsSidebarOpen(true)} className="p-2">
           <Menu className="h-5 w-5" />
         </button>
-        <h1 className="font-serif text-xl tracking-widest">amore</h1>
+        <h1 className="font-serif text-xl tracking-widest font-bold">RAR</h1>
         <Link to="/" className="p-2">
           <ExternalLink className="h-5 w-5" />
         </Link>
@@ -67,7 +69,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
           }`}
       >
         <div className="flex items-center justify-between h-16 px-6 border-b border-border">
-          <h1 className="font-serif text-xl tracking-widest">amore</h1>
+          <h1 className="font-serif text-xl tracking-widest font-bold">RAR</h1>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2">
             <X className="h-5 w-5" />
           </button>

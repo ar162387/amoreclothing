@@ -11,7 +11,7 @@ if (!s3Endpoint || !s3KeyId || !s3SecretKey) {
 
 export const s3Client = new S3Client({
     forcePathStyle: true,
-    region: "ap-southeast-2", // Supabase S3 compatibility typically uses us-east-1 for signature verification
+    region: "us-east-1",
     endpoint: s3Endpoint,
     credentials: {
         accessKeyId: s3KeyId,

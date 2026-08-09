@@ -242,7 +242,7 @@ const AdminProducts = () => {
 interface ProductFormProps {
   product: Product | null;
   collections: Collection[];
-  onSave: (data: CreateProductDTO, id?: string) => void;
+  onSave: (data: CreateProductDTO, id?: string) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -347,32 +347,33 @@ const ProductForm = ({ product, collections, onSave, onCancel }: ProductFormProp
     try {
       let finalFront = formData.image_front;
       let finalBack = formData.image_back;
-      let finalOthers = [...(formData.images_other || [])];
+      const finalOthers = [...(formData.images_other || [])];
 
       // Upload local files
       if (localFront) {
         const url = await uploadService.uploadImage(localFront.file);
-        if (url) finalFront = url;
+        finalFront = url;
       }
 
       if (localBack) {
         const url = await uploadService.uploadImage(localBack.file);
-        if (url) finalBack = url;
+        finalBack = url;
       }
 
       for (const local of localOthers) {
         const url = await uploadService.uploadImage(local.file);
-        if (url) finalOthers.push(url);
+        finalOthers.push(url);
       }
 
       const finalData: CreateProductDTO = {
         ...formData,
+        collection_id: formData.collection_id || null,
         image_front: finalFront,
         image_back: finalBack,
         images_other: finalOthers,
       };
 
-      onSave(finalData, product?.id);
+      await onSave(finalData, product?.id);
     } catch (error) {
       console.error("Upload error", error);
       toast.error("Failed to upload images. Product not saved.");
@@ -409,13 +410,14 @@ const ProductForm = ({ product, collections, onSave, onCancel }: ProductFormProp
             <div className="space-y-2">
               <Label htmlFor="collection">Collection</Label>
               <Select
-                value={formData.collection_id}
-                onValueChange={(value) => setFormData({ ...formData, collection_id: value })}
+                value={formData.collection_id || 'none'}
+                onValueChange={(value) => setFormData({ ...formData, collection_id: value === 'none' ? '' : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select collection" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">No collection</SelectItem>
                   {collections.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}

@@ -1,8 +1,11 @@
 import Layout from '@/components/layout/Layout';
+import { useNoIndex } from '@/hooks/use-no-index';
 import aboutHero from '@/assets/about-hero.jpg';
 import collectionWinter from '@/assets/collection-winter.jpg';
 
 const About = () => {
+  useNoIndex();
+
   return (
     <Layout hasHero>
       {/* Hero */}
@@ -10,7 +13,7 @@ const About = () => {
         <div className="absolute inset-0">
           <img
             src={aboutHero}
-            alt="Amore Story"
+            alt="RAR Studio Story"
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-foreground/30" />
@@ -38,7 +41,7 @@ const About = () => {
               </h2>
               <div className="space-y-6 text-sm font-light leading-relaxed text-muted-foreground">
                 <p>
-                  Amore was founded with a singular vision: to create clothing that celebrates the 
+                  RAR Studio was founded with a singular vision: to create clothing that celebrates the
                   modern woman in all her complexity. We believe that true elegance comes not from 
                   following trends, but from understanding your own unique style.
                 </p>
@@ -57,7 +60,7 @@ const About = () => {
             <div className="aspect-[4/5] overflow-hidden">
               <img
                 src={collectionWinter}
-                alt="Amore craftsmanship"
+                alt="RAR Studio craftsmanship"
                 className="w-full h-full object-cover"
               />
             </div>
@@ -119,11 +122,11 @@ const About = () => {
         <div className="container mx-auto px-6">
           <blockquote className="max-w-3xl mx-auto text-center">
             <p className="font-serif text-2xl lg:text-3xl font-light leading-relaxed mb-6">
-              "At Amore, we don't just make clothes. We craft confidence, one beautiful 
+              "At RAR Studio, we don't just make clothes. We craft confidence, one beautiful
               piece at a time."
             </p>
             <footer className="text-sm tracking-widest uppercase text-muted-foreground">
-              — The Amore Team
+              — The RAR Studio Team
             </footer>
           </blockquote>
         </div>

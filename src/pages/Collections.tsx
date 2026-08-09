@@ -4,9 +4,12 @@ import ProductCard from '@/components/ProductCard';
 import ProductCardSkeleton from '@/components/ProductCardSkeleton';
 import { productsService, Product } from '@/services/products';
 import { collectionsService, Collection } from '@/services/collections';
+import { useNoIndex } from '@/hooks/use-no-index';
 import collectionsHero from '@/assets/collections-hero.jpg';
 
 const Collections = () => {
+  useNoIndex();
+
   const [products, setProducts] = useState<Product[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
@@ -47,7 +50,7 @@ const Collections = () => {
         <div className="absolute inset-0">
           <img
             src={collectionsHero}
-            alt="Amore Collections"
+            alt="RAR Studio Collections"
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-foreground/30" />

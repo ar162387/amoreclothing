@@ -1,9 +1,13 @@
 import { useState } from 'react';
 import { Mail, Phone, Instagram, MapPin } from 'lucide-react';
 import Layout from '@/components/layout/Layout';
+import SiteMedia from '@/components/SiteMedia';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import contactHero from '@/assets/contact-hero.jpg';
+import { useSitePage } from '@/contexts/SiteContentContext';
+import { toWaNumber } from '@/lib/siteContent';
+import { useSeo } from '@/hooks/use-seo';
+import { absoluteUrl, buildContactPageJsonLd } from '@/lib/seo';
 
 const contactSchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(100),
@@ -13,6 +17,16 @@ const contactSchema = z.object({
 });
 
 const Contact = () => {
+  const contact = useSitePage('contact');
+
+  useSeo({
+    title: 'Contact | RAR Studio',
+    description: contact.hero.body,
+    canonicalPath: '/contact',
+    image: contact.hero.media.type === 'image' ? absoluteUrl(contact.hero.media.url) : undefined,
+    jsonLd: buildContactPageJsonLd(contact.info),
+  });
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -47,18 +61,18 @@ const Contact = () => {
     }
 
     setIsSubmitting(true);
-    
+
     // Simulate form submission
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    
-    toast.success('Message sent successfully! We\'ll get back to you soon.');
+
+    toast.success(contact.form.success_message);
     setFormData({ name: '', email: '', subject: '', message: '' });
     setIsSubmitting(false);
   };
 
   const openWhatsApp = () => {
-    const message = encodeURIComponent('Hello! I have a question about Amore.');
-    window.open(`https://wa.me/923001234567?text=${message}`, '_blank');
+    const message = encodeURIComponent(contact.info.whatsapp_message);
+    window.open(`https://wa.me/${toWaNumber(contact.info.phone)}?text=${message}`, '_blank');
   };
 
   return (
@@ -66,22 +80,22 @@ const Contact = () => {
       {/* Hero */}
       <section className="relative h-[60vh] flex items-center">
         <div className="absolute inset-0">
-          <img
-            src={contactHero}
-            alt="Contact Amore"
+          <SiteMedia
+            media={contact.hero.media}
             className="w-full h-full object-cover"
+            priority
           />
           <div className="absolute inset-0 bg-foreground/30" />
         </div>
         <div className="relative container mx-auto px-6 text-center">
           <p className="text-xs tracking-[0.3em] uppercase text-background/80 mb-3">
-            Get in Touch
+            {contact.hero.eyebrow}
           </p>
           <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-light text-background mb-4">
-            Contact Us
+            {contact.hero.title}
           </h1>
           <p className="text-sm font-light text-background/80 max-w-lg mx-auto">
-            We'd love to hear from you. Send us a message and we'll respond as soon as possible.
+            {contact.hero.body}
           </p>
         </div>
       </section>
@@ -95,7 +109,7 @@ const Contact = () => {
               
               <div className="space-y-6 mb-12">
                 <a
-                  href="mailto:hello@amore.pk"
+                  href={`mailto:${contact.info.email}`}
                   className="flex items-start gap-4 group"
                 >
                   <div className="w-12 h-12 border border-border flex items-center justify-center group-hover:bg-foreground group-hover:text-background transition-colors">
@@ -103,7 +117,7 @@ const Contact = () => {
                   </div>
                   <div>
                     <p className="text-sm font-medium mb-1">Email</p>
-                    <p className="text-sm text-muted-foreground">hello@amore.pk</p>
+                    <p className="text-sm text-muted-foreground">{contact.info.email}</p>
                   </div>
                 </a>
 
@@ -116,12 +130,12 @@ const Contact = () => {
                   </div>
                   <div>
                     <p className="text-sm font-medium mb-1">WhatsApp</p>
-                    <p className="text-sm text-muted-foreground">+92 300 1234567</p>
+                    <p className="text-sm text-muted-foreground">{contact.info.phone}</p>
                   </div>
                 </button>
 
                 <a
-                  href="https://instagram.com"
+                  href={contact.info.instagram_url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-start gap-4 group"
@@ -131,7 +145,7 @@ const Contact = () => {
                   </div>
                   <div>
                     <p className="text-sm font-medium mb-1">Instagram</p>
-                    <p className="text-sm text-muted-foreground">@amore.pk</p>
+                    <p className="text-sm text-muted-foreground">{contact.info.instagram_handle}</p>
                   </div>
                 </a>
 
@@ -141,7 +155,7 @@ const Contact = () => {
                   </div>
                   <div>
                     <p className="text-sm font-medium mb-1">Location</p>
-                    <p className="text-sm text-muted-foreground">Lahore, Pakistan</p>
+                    <p className="text-sm text-muted-foreground">{contact.info.location}</p>
                   </div>
                 </div>
               </div>
@@ -157,7 +171,7 @@ const Contact = () => {
 
             {/* Contact Form */}
             <div>
-              <h2 className="font-serif text-2xl font-light mb-8">Send a Message</h2>
+              <h2 className="font-serif text-2xl font-light mb-8">{contact.form.title}</h2>
               
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div>

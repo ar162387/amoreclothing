@@ -6,7 +6,10 @@ import { formatPrice } from '@/data/store';
 import { productsService, Product } from '@/services/products';
 import { toast } from 'sonner';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import ProductLightbox from '@/components/ProductLightbox';
 import { useCartStore } from '@/store/cartStore';
+import { useSeo } from '@/hooks/use-seo';
+import { absoluteUrl, buildProductJsonLd, SITE_NAME } from '@/lib/seo';
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -14,7 +17,21 @@ const ProductDetail = () => {
   const [loading, setLoading] = useState(true);
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const { addItem, openCart } = useCartStore();
+
+  // Called unconditionally (before the loading/not-found early returns below) per the rules of hooks —
+  // falls back to generic brand copy until the product has loaded.
+  useSeo({
+    title: product ? `${product.name} | ${SITE_NAME}` : `${SITE_NAME} | Timeless Luxury Fashion`,
+    description:
+      product?.description ||
+      `Shop ${SITE_NAME} — timeless luxury fashion, crafted for the modern woman.`,
+    canonicalPath: id ? `/product/${id}` : '/',
+    image: product?.image_front ? absoluteUrl(product.image_front) : undefined,
+    jsonLd: product && id ? buildProductJsonLd(product, absoluteUrl(`/product/${id}`)) : undefined,
+  });
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -51,8 +68,8 @@ const ProductDetail = () => {
       <Layout>
         <div className="container mx-auto px-6 py-20 text-center">
           <h1 className="text-2xl font-light mb-4">Product not found</h1>
-          <Link to="/collections" className="text-sm underline">
-            Return to Collections
+          <Link to="/" className="text-sm underline">
+            Return to Home
           </Link>
         </div>
       </Layout>
@@ -66,6 +83,11 @@ const ProductDetail = () => {
   if (product.images_other) images.push(...product.images_other);
   
   const hasImages = images.length > 0;
+
+  const openLightbox = (index: number) => {
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+  };
 
   const handleAddToCart = () => {
     if (!selectedSize) {
@@ -85,11 +107,11 @@ const ProductDetail = () => {
       <div className="border-b border-border">
         <div className="container mx-auto px-6 py-4">
           <Link
-            to="/collections"
+            to="/"
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ChevronLeft className="h-4 w-4" />
-            Back to Collections
+            Back
           </Link>
         </div>
       </div>
@@ -105,13 +127,17 @@ const ProductDetail = () => {
                 <CarouselContent className="-ml-0">
                   {images.map((imageUrl, index) => (
                     <CarouselItem key={index} className="pl-0">
-                      <div className="w-full aspect-[3/4] bg-secondary">
+                      <button
+                        type="button"
+                        onClick={() => openLightbox(index)}
+                        className="w-full aspect-[3/4] bg-secondary block"
+                      >
                         <img
                           src={imageUrl}
                           alt={`${product.name} - View ${index + 1}`}
                           className="w-full h-full object-cover"
                         />
-                      </div>
+                      </button>
                     </CarouselItem>
                   ))}
                 </CarouselContent>
@@ -134,13 +160,18 @@ const ProductDetail = () => {
             <div className="space-y-0">
               {hasImages ? (
                 images.map((imageUrl, index) => (
-                  <div key={index} className="w-full aspect-[3/4] bg-secondary">
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => openLightbox(index)}
+                    className="w-full aspect-[3/4] bg-secondary block cursor-zoom-in"
+                  >
                     <img
                       src={imageUrl}
                       alt={`${product.name} - View ${index + 1}`}
                       className="w-full h-full object-cover"
                     />
-                  </div>
+                  </button>
                 ))
               ) : (
                 <div className="w-full aspect-[3/4] bg-secondary flex items-center justify-center">
@@ -236,6 +267,14 @@ const ProductDetail = () => {
           </div>
         </div>
       </div>
+
+      <ProductLightbox
+        images={images}
+        open={lightboxOpen}
+        startIndex={lightboxIndex}
+        onOpenChange={setLightboxOpen}
+        productName={product.name}
+      />
     </Layout>
   );
 };

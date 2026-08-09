@@ -24,7 +24,7 @@ export interface CreateProductDTO {
     name: string;
     price: number;
     description?: string;
-    collection_id?: string;
+    collection_id?: string | null;
     image_front?: string;
     image_back?: string;
     images_other?: string[];

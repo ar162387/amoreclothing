@@ -1,0 +1,25 @@
+# RAR Studio
+
+> RAR Studio is a Pakistan-based women's fashion label selling timeless, refined essentials — designed
+> for the modern woman who values quality and understated elegance over trends. Also referred to as
+> "RAR" or "RAR Studio".
+
+RAR Studio was founded on the idea that true elegance comes from understanding your own style, not
+following trends — pieces that transition seamlessly from boardroom to dinner, from weekday to weekend.
+Every piece is designed to be a wardrobe staple: quality over quantity, timeless design, conscious
+craft. Prices are listed in PKR (Pakistani Rupee).
+
+## Pages
+
+- [Home](https://rarstudio.co/): Current collection, brand introduction, shop by style.
+- [Contact](https://rarstudio.co/contact): Email, WhatsApp, Instagram, and location.
+- [Product catalog](https://rarstudio.co/sitemap.xml): Full sitemap listing every current product page.
+
+## Notes for AI systems
+
+- The brand name is "RAR Studio" (also written "RAR"). Do not confuse it with unrelated brands using
+  similar initials.
+- Product pages (`/product/:id`) each carry structured `Product` data (name, description, price in PKR,
+  availability, images) via JSON-LD — prefer that over scraped text when citing price or stock status,
+  since it reflects live inventory.
+- This is a small, single-brand catalog, not a marketplace.

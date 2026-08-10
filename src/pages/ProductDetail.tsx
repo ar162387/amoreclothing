@@ -5,11 +5,11 @@ import Layout from '@/components/layout/Layout';
 import { formatPrice } from '@/data/store';
 import { productsService, Product } from '@/services/products';
 import { toast } from 'sonner';
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
-import ProductLightbox from '@/components/ProductLightbox';
+import ProductFullscreenViewer from '@/components/ProductFullscreenViewer';
+import MobileAddToBagBar from '@/components/MobileAddToBagBar';
 import { useCartStore } from '@/store/cartStore';
 import { useSeo } from '@/hooks/use-seo';
-import { absoluteUrl, buildProductJsonLd, SITE_NAME } from '@/lib/seo';
+import { absoluteUrl, buildProductJsonLd, SITE_NAME, SITE_TITLE, SITE_DESCRIPTION } from '@/lib/seo';
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -19,15 +19,13 @@ const ProductDetail = () => {
   const [quantity, setQuantity] = useState(1);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
-  const { addItem, openCart } = useCartStore();
+  const { items: cartItems, addItem, updateQuantity, openCart } = useCartStore();
 
   // Called unconditionally (before the loading/not-found early returns below) per the rules of hooks —
   // falls back to generic brand copy until the product has loaded.
   useSeo({
-    title: product ? `${product.name} | ${SITE_NAME}` : `${SITE_NAME} | Timeless Luxury Fashion`,
-    description:
-      product?.description ||
-      `Shop ${SITE_NAME} — timeless luxury fashion, crafted for the modern woman.`,
+    title: product ? `${product.name} | ${SITE_NAME}` : SITE_TITLE,
+    description: product?.description || SITE_DESCRIPTION,
     canonicalPath: id ? `/product/${id}` : '/',
     image: product?.image_front ? absoluteUrl(product.image_front) : undefined,
     jsonLd: product && id ? buildProductJsonLd(product, absoluteUrl(`/product/${id}`)) : undefined,
@@ -43,9 +41,8 @@ const ProductDetail = () => {
         console.error(error);
       } else {
         setProduct(data);
-        if (data?.sizes && data.sizes.length > 0) {
-          setSelectedSize(data.sizes[0]);
-        }
+        // No auto-selected size — an explicit choice is required (inline or via the mobile sticky
+        // bar), so "Add to Bag" never silently uses a size the user never actually picked.
       }
       setLoading(false);
     };
@@ -53,9 +50,20 @@ const ProductDetail = () => {
     fetchProduct();
   }, [id]);
 
+  // The cart entry for whatever size is currently selected (if this product+size is already in the
+  // bag) — the single source of truth the Quantity control below stays synced to, at the store level,
+  // so the number shown here always matches what's actually in the cart (and vice versa).
+  const cartEntry = product
+    ? cartItems.find((item) => item.product.id === product.id && item.size === selectedSize)
+    : undefined;
+
+  useEffect(() => {
+    setQuantity(cartEntry?.quantity ?? 1);
+  }, [selectedSize, product?.id, cartEntry?.quantity]);
+
   if (loading) {
     return (
-      <Layout>
+      <Layout staticHeader>
         <div className="container mx-auto px-6 py-20 text-center">
           <p className="text-muted-foreground">Loading product...</p>
         </div>
@@ -65,7 +73,7 @@ const ProductDetail = () => {
 
   if (!product) {
     return (
-      <Layout>
+      <Layout staticHeader>
         <div className="container mx-auto px-6 py-20 text-center">
           <h1 className="text-2xl font-light mb-4">Product not found</h1>
           <Link to="/" className="text-sm underline">
@@ -89,96 +97,229 @@ const ProductDetail = () => {
     setLightboxOpen(true);
   };
 
-  const handleAddToCart = () => {
-    if (!selectedSize) {
+  // Takes an explicit size rather than reading `selectedSize` state, so callers that just resolved a
+  // size synchronously (e.g. the mobile sticky bar's size picker) don't race a stale closure value.
+  const addToCartWithSize = (size: string) => {
+    if (product.sizes && product.sizes.length > 0 && !size) {
       toast.error('Please select a size');
       return;
     }
+    setSelectedSize(size);
+
+    // Already in the bag for this size — the Quantity control here is already the live cart quantity
+    // (kept in sync by the effect above), so there's nothing new to add; just surface the cart.
+    const existing = cartItems.find((item) => item.product.id === product.id && item.size === size);
+    if (existing) {
+      openCart();
+      return;
+    }
+
     for (let i = 0; i < quantity; i++) {
-      addItem(product, selectedSize);
+      addItem(product, size);
     }
     toast.success(`${product.name} added to cart`);
     openCart();
   };
 
+  const handleAddToCart = () => addToCartWithSize(selectedSize);
+
+  // +/- updates the live cart quantity directly once this product+size is already in the bag, instead
+  // of a separate "how many to add next" number — a single quantity, synced at the store level.
+  const changeQuantity = (delta: number) => {
+    const next = Math.max(1, quantity + delta);
+    if (cartEntry) {
+      updateQuantity(product.id, selectedSize, next);
+    } else {
+      setQuantity(next);
+    }
+  };
+
   return (
-    <Layout>
-      {/* Back Link */}
-      <div className="border-b border-border">
-        <div className="container mx-auto px-6 py-4">
+    <Layout staticHeader>
+      {/* Mobile layout (<lg) — image 1, then the full buy-info block once, then every remaining image
+          stacked below it (no swipe carousel — showing everything in one scroll makes swiping
+          unnecessary). The sticky Add-to-Bag bar is the LAST child of this relative wrapper, which is
+          what makes it stop sticking exactly when the product content ends, instead of floating over
+          the footer below — see MobileAddToBagBar's doc comment. */}
+      <div className="relative lg:hidden">
+        <Link
+          to="/"
+          className="absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-full bg-background/80 px-3 py-2 text-sm hover:bg-background transition-colors"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Back
+        </Link>
+
+        {hasImages ? (
+          <button
+            type="button"
+            onClick={() => openLightbox(0)}
+            className="w-full aspect-[3/4] bg-secondary block"
+          >
+            <img
+              src={images[0]}
+              alt={`${product.name} - View 1`}
+              className="w-full h-full object-cover"
+            />
+          </button>
+        ) : (
+          <div className="w-full aspect-[3/4] bg-secondary flex items-center justify-center">
+            <p className="text-muted-foreground">No images available</p>
+          </div>
+        )}
+
+        {/* Title only — price lives solely in the sticky bar below, so it's never shown twice */}
+        <div className="px-6 pt-6">
+          <h1 className="font-serif text-3xl font-light">{product.name}</h1>
+        </div>
+
+        {/* Image 2 */}
+        {images[1] && (
+          <button
+            type="button"
+            onClick={() => openLightbox(1)}
+            className="mt-6 w-full aspect-[3/4] bg-secondary block"
+          >
+            <img
+              src={images[1]}
+              alt={`${product.name} - View 2`}
+              className="w-full h-full object-cover"
+            />
+          </button>
+        )}
+
+        {/* Description — no label */}
+        {product.description && (
+          <div className="px-6 py-6">
+            <p className="text-sm font-light leading-relaxed text-muted-foreground">
+              {product.description}
+            </p>
+          </div>
+        )}
+
+        {/* Remaining images (3rd onward) */}
+        {images.length > 2 && (
+          <div className="space-y-0">
+            {images.slice(2).map((imageUrl, i) => {
+              const index = i + 2;
+              return (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => openLightbox(index)}
+                  className="w-full aspect-[3/4] bg-secondary block"
+                >
+                  <img
+                    src={imageUrl}
+                    alt={`${product.name} - View ${index + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Size + Quantity — the ONLY place either is chosen; the sticky bar just reflects this
+            same state rather than offering its own separate picker. */}
+        <div className="p-6">
+          {product.sizes && product.sizes.length > 0 && (
+            <div className="mb-8">
+              {/* Size Guide link hidden for now */}
+              <div className="mb-4">
+                <span className="text-sm font-medium">Size</span>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                {product.sizes.map((size) => (
+                  <button
+                    key={size}
+                    onClick={() => setSelectedSize(size)}
+                    className={`w-12 h-12 border text-sm transition-all ${
+                      selectedSize === size
+                        ? 'border-foreground bg-foreground text-background'
+                        : 'border-border hover:border-foreground'
+                    }`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="mb-8">
+            <span className="text-sm font-medium block mb-4">Quantity</span>
+            <div className="flex items-center border border-border w-fit">
+              <button
+                onClick={() => changeQuantity(-1)}
+                className="p-3 hover:bg-secondary transition-colors"
+              >
+                <Minus className="h-4 w-4" />
+              </button>
+              <span className="w-12 text-center text-sm">{quantity}</span>
+              <button
+                onClick={() => changeQuantity(1)}
+                className="p-3 hover:bg-secondary transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-4 text-sm font-light text-muted-foreground">
+            <p>• Free shipping on orders over PKR 15,000</p>
+            <p>• 14-day return policy</p>
+            <p>• WhatsApp support: +92 300 1234567</p>
+          </div>
+        </div>
+
+        <MobileAddToBagBar
+          productName={product.name}
+          price={formatPrice(Number(product.price))}
+          available={product.available}
+          sizes={product.sizes ?? []}
+          selectedSize={selectedSize}
+          quantity={quantity}
+          onSelectSize={setSelectedSize}
+          onAdd={addToCartWithSize}
+        />
+      </div>
+
+      {/* Desktop layout (lg+) — unchanged: two-column split, stacked gallery on the left, sticky
+          buy-info sidebar on the right. */}
+      <div className="hidden lg:grid lg:grid-cols-2">
+        {/* Left: Image Gallery */}
+        <div className="relative order-1 lg:order-1">
+          {/* Back Link — floats over the top-left corner of the gallery */}
           <Link
             to="/"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="absolute left-4 top-4 lg:left-6 lg:top-6 z-10 inline-flex items-center gap-2 rounded-full bg-background/80 px-3 py-2 text-sm hover:bg-background transition-colors"
           >
             <ChevronLeft className="h-4 w-4" />
             Back
           </Link>
-        </div>
-      </div>
 
-      {/* Split Screen Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2">
-        {/* Left: Image Gallery */}
-        <div className="order-1 lg:order-1">
-          {/* Mobile: Carousel with swipe */}
-          <div className="lg:hidden">
+          <div className="space-y-0">
             {hasImages ? (
-              <Carousel className="w-full" opts={{ align: 'start', loop: true }}>
-                <CarouselContent className="-ml-0">
-                  {images.map((imageUrl, index) => (
-                    <CarouselItem key={index} className="pl-0">
-                      <button
-                        type="button"
-                        onClick={() => openLightbox(index)}
-                        className="w-full aspect-[3/4] bg-secondary block"
-                      >
-                        <img
-                          src={imageUrl}
-                          alt={`${product.name} - View ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                      </button>
-                    </CarouselItem>
-                  ))}
-                </CarouselContent>
-                {images.length > 1 && (
-                  <>
-                    <CarouselPrevious className="left-2 bg-background/80 border-background/20 hover:bg-background" />
-                    <CarouselNext className="right-2 bg-background/80 border-background/20 hover:bg-background" />
-                  </>
-                )}
-              </Carousel>
+              images.map((imageUrl, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={() => openLightbox(index)}
+                  className="w-full aspect-[3/4] bg-secondary block cursor-zoom-in"
+                >
+                  <img
+                    src={imageUrl}
+                    alt={`${product.name} - View ${index + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              ))
             ) : (
               <div className="w-full aspect-[3/4] bg-secondary flex items-center justify-center">
                 <p className="text-muted-foreground">No images available</p>
               </div>
             )}
-          </div>
-
-          {/* Desktop: Scrollable Gallery */}
-          <div className="hidden lg:block">
-            <div className="space-y-0">
-              {hasImages ? (
-                images.map((imageUrl, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    onClick={() => openLightbox(index)}
-                    className="w-full aspect-[3/4] bg-secondary block cursor-zoom-in"
-                  >
-                    <img
-                      src={imageUrl}
-                      alt={`${product.name} - View ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
-                ))
-              ) : (
-                <div className="w-full aspect-[3/4] bg-secondary flex items-center justify-center">
-                  <p className="text-muted-foreground">No images available</p>
-                </div>
-              )}
-            </div>
           </div>
         </div>
 
@@ -205,11 +346,9 @@ const ProductDetail = () => {
             {/* Size Selection */}
             {product.sizes && product.sizes.length > 0 && (
               <div className="mb-8">
-                <div className="flex items-center justify-between mb-4">
+                {/* Size Guide link hidden for now */}
+                <div className="mb-4">
                   <span className="text-sm font-medium">Size</span>
-                  <Link to="/size-guide" className="text-xs underline text-muted-foreground">
-                    Size Guide
-                  </Link>
                 </div>
                 <div className="flex flex-wrap gap-3">
                   {product.sizes.map((size) => (
@@ -234,14 +373,14 @@ const ProductDetail = () => {
               <span className="text-sm font-medium block mb-4">Quantity</span>
               <div className="flex items-center border border-border w-fit">
                 <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  onClick={() => changeQuantity(-1)}
                   className="p-3 hover:bg-secondary transition-colors"
                 >
                   <Minus className="h-4 w-4" />
                 </button>
                 <span className="w-12 text-center text-sm">{quantity}</span>
                 <button
-                  onClick={() => setQuantity(quantity + 1)}
+                  onClick={() => changeQuantity(1)}
                   className="p-3 hover:bg-secondary transition-colors"
                 >
                   <Plus className="h-4 w-4" />
@@ -268,7 +407,7 @@ const ProductDetail = () => {
         </div>
       </div>
 
-      <ProductLightbox
+      <ProductFullscreenViewer
         images={images}
         open={lightboxOpen}
         startIndex={lightboxIndex}

@@ -7,7 +7,7 @@ import SiteMediaRotator from '@/components/SiteMediaRotator';
 import { productsService, Product } from '@/services/products';
 import { useSitePage } from '@/contexts/SiteContentContext';
 import { useSeo } from '@/hooks/use-seo';
-import { absoluteUrl, buildOrganizationJsonLd, buildWebsiteJsonLd } from '@/lib/seo';
+import { absoluteUrl, buildOrganizationJsonLd, buildWebsiteJsonLd, SITE_TITLE } from '@/lib/seo';
 
 const Index = () => {
   const home = useSitePage('home');
@@ -17,7 +17,7 @@ const Index = () => {
 
   const heroImage = home.hero.media.find((item) => item.type === 'image');
   useSeo({
-    title: 'RAR Studio | Timeless Luxury Fashion',
+    title: SITE_TITLE,
     description: home.hero.body,
     canonicalPath: '/',
     image: heroImage ? absoluteUrl(heroImage.url) : undefined,

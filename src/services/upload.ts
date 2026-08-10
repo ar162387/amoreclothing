@@ -2,8 +2,59 @@
 import { s3Client } from "@/integrations/supabase/s3-client";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 
-export const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB
+// Raw-camera-photo ceiling for what we'll even attempt to read into the browser — the real, much
+// smaller limit that actually reaches S3 is enforced by compressImage() below. 15-25MB straight off a
+// phone/DSLR is normal and shouldn't be rejected outright; it just needs to be downsized first.
+export const MAX_IMAGE_BYTES = 30 * 1024 * 1024; // 30 MB
 export const MAX_VIDEO_BYTES = 25 * 1024 * 1024; // 25 MB
+
+// Longest edge for a product/site photo after compression — comfortably larger than any screen this
+// site displays it on, including the full-screen product viewer's ~2.2x pinch-zoom (a 3200px source
+// still has ~1450px of real detail per screen-pixel at max zoom on a standard 1440px-wide display).
+// These photos are professionally shot (paid models, paid photography) — bias toward "you can't tell
+// it was compressed" over squeezing every last KB. Quality 0.92 is the JPEG range generally considered
+// visually indistinguishable from the source on a screen; it still cuts a 15-25MB camera original down
+// to roughly 2-5MB, which is the actual problem (uncapped raw photos tanking page load speed).
+const MAX_IMAGE_DIMENSION = 3200;
+const JPEG_QUALITY = 0.92;
+// Below this, a source file is almost certainly already web-sized — skip re-encoding it.
+const COMPRESS_SKIP_THRESHOLD_BYTES = 2.5 * 1024 * 1024; // 2.5 MB
+
+/** Downscales/re-encodes an oversized image client-side before it ever leaves the browser, via a canvas
+ * (no dependency needed). PNGs stay PNG (keeps transparency, still shrinks a lot from resizing alone);
+ * everything else is re-encoded as JPEG at JPEG_QUALITY, which is where the real size reduction comes
+ * from for camera photos. Falls back to the original file untouched on any failure or if compression
+ * didn't actually help — this must never be the reason an upload fails. */
+async function compressImage(file: File): Promise<File> {
+  if (file.size <= COMPRESS_SKIP_THRESHOLD_BYTES) return file;
+
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(bitmap.width, bitmap.height));
+    const width = Math.round(bitmap.width * scale);
+    const height = Math.round(bitmap.height * scale);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close?.();
+
+    const outputType = file.type === "image/png" ? "image/png" : "image/jpeg";
+    const blob: Blob | null = await new Promise((resolve) =>
+      canvas.toBlob(resolve, outputType, outputType === "image/jpeg" ? JPEG_QUALITY : undefined),
+    );
+    if (!blob || blob.size >= file.size) return file;
+
+    const newName = outputType === file.type ? file.name : file.name.replace(/\.\w+$/, ".jpg");
+    return new File([blob], newName, { type: outputType });
+  } catch (error) {
+    console.error("Image compression failed, uploading the original file instead:", error);
+    return file;
+  }
+}
 
 export const ACCEPT_IMAGE = "image/jpeg,image/png,image/webp,image/avif";
 export const ACCEPT_VIDEO = "video/mp4,video/webm";
@@ -33,18 +84,20 @@ function resolveExtension(file: File): string {
 
 async function upload(file: File, folder: string): Promise<string> {
     try {
-        const fileExt = resolveExtension(file);
+        const uploadFile = IMAGE_MIME_TYPES.has(file.type) ? await compressImage(file) : file;
+
+        const fileExt = resolveExtension(uploadFile);
         const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
         const filePath = `${folder}/${fileName}`;
 
         // Convert file to ArrayBuffer to avoid stream reader issues in some browser environments
-        const fileBuffer = await file.arrayBuffer();
+        const fileBuffer = await uploadFile.arrayBuffer();
 
         const command = new PutObjectCommand({
             Bucket: "products",
             Key: filePath,
             Body: new Uint8Array(fileBuffer), // Send as Uint8Array
-            ContentType: file.type,
+            ContentType: uploadFile.type,
             CacheControl: "public, max-age=31536000, immutable",
         });
 

@@ -7,6 +7,10 @@ interface SitemapUrl {
   loc: string;
   priority: string;
   lastmod?: string;
+  /** Product photo URLs for this page — rendered as <image:image> entries so Google can discover and
+   * index them directly from the sitemap (the usual source of the row of product thumbnails Google
+   * shows under a listing), rather than relying solely on crawling the rendered page. */
+  images?: string[];
 }
 
 /**
@@ -31,16 +35,20 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
       const supabase = createClient(supabaseUrl, supabaseAnonKey);
       const { data, error } = await supabase
         .from('products')
-        .select('id, created_at')
+        .select('id, created_at, image_front, image_back, images_other')
         .eq('available', true);
 
       if (error) throw error;
 
       (data ?? []).forEach((product) => {
+        const images = [product.image_front, product.image_back, ...(product.images_other ?? [])].filter(
+          (value): value is string => Boolean(value),
+        );
         urls.push({
           loc: `${SITE_URL}/product/${product.id}`,
           priority: '0.8',
           lastmod: product.created_at ? new Date(product.created_at).toISOString() : undefined,
+          images,
         });
       });
     } catch (error) {
@@ -52,16 +60,22 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     console.error('sitemap: missing VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY');
   }
 
+  const escapeXml = (value: string) => value.replace(/&/g, '&amp;');
+
   const body = urls
     .map(
       (url) =>
         `  <url>\n    <loc>${url.loc}</loc>\n` +
         (url.lastmod ? `    <lastmod>${url.lastmod}</lastmod>\n` : '') +
-        `    <priority>${url.priority}</priority>\n  </url>`,
+        `    <priority>${url.priority}</priority>\n` +
+        (url.images ?? [])
+          .map((src) => `    <image:image>\n      <image:loc>${escapeXml(src)}</image:loc>\n    </image:image>\n`)
+          .join('') +
+        `  </url>`,
     )
     .join('\n');
 
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>`;
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${body}\n</urlset>`;
 
   res.setHeader('Content-Type', 'application/xml; charset=utf-8');
   res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');

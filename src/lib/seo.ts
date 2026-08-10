@@ -10,6 +10,10 @@ import type { ContactInfo } from "@/services/siteContent";
 
 export const SITE_URL = "https://rarstudio.co";
 export const SITE_NAME = "RAR Studio";
+export const SITE_TAGLINE = "Western Luxury, Made in Pakistan";
+export const SITE_TITLE = `${SITE_NAME} — ${SITE_TAGLINE}`;
+export const SITE_DESCRIPTION =
+  "RAR Studio brings western luxury fashion, made in Pakistan — timeless pieces crafted for the modern woman.";
 /** Hardcoded to match formatPrice() in src/data/store.ts — there's no per-product currency field. */
 export const CURRENCY = "PKR";
 
@@ -18,6 +22,11 @@ export function absoluteUrl(path: string): string {
   if (/^https?:\/\//.test(path)) return path;
   return `${SITE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 }
+
+/** Square brand mark (the "RAR" wordmark only, no outer padding — same crop used for the favicon) —
+ * this is what Google's Logo rich result / knowledge panel pulls in next to the site name in search
+ * results. Google requires it be square-ish and under 5MB; this is ~512x512 and well under that. */
+export const SITE_LOGO_URL = absoluteUrl("/favicon-512.png");
 
 export function buildOrganizationJsonLd(info?: Partial<ContactInfo>) {
   const sameAs: string[] = [];
@@ -28,6 +37,15 @@ export function buildOrganizationJsonLd(info?: Partial<ContactInfo>) {
     "@type": "Organization",
     name: SITE_NAME,
     url: SITE_URL,
+    slogan: SITE_TAGLINE,
+    description: SITE_DESCRIPTION,
+    logo: {
+      "@type": "ImageObject",
+      url: SITE_LOGO_URL,
+      width: 512,
+      height: 512,
+    },
+    image: SITE_LOGO_URL,
     ...(info?.email ? { email: info.email } : {}),
     ...(info?.phone ? { telephone: info.phone } : {}),
     ...(sameAs.length ? { sameAs } : {}),

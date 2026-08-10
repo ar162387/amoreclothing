@@ -8,9 +8,11 @@ import { formatPrice } from '@/data/store';
 
 interface HeaderProps {
   hasHero?: boolean;
+  /** Render in-flow (static) instead of fixed-overlay — see Layout.tsx. */
+  staticHeader?: boolean;
 }
 
-const Header = ({ hasHero = false }: HeaderProps) => {
+const Header = ({ hasHero = false, staticHeader = false }: HeaderProps) => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [query, setQuery] = useState('');
@@ -92,13 +94,12 @@ const Header = ({ hasHero = false }: HeaderProps) => {
   ];
 
   const isActive = (path: string) => location.pathname === path;
-  const isProductDetailPage = location.pathname.startsWith('/product/');
-  
+
   const isTransparent = hasHero && !isScrolled && !isSearchOpen;
 
   return (
-    <header 
-      className={`${isProductDetailPage ? 'static' : 'fixed top-0 left-0 right-0'} z-50 transition-all duration-300 ${
+    <header
+      className={`${staticHeader ? 'static' : 'fixed top-0 left-0 right-0'} z-50 transition-all duration-300 ${
         isTransparent 
           ? 'bg-transparent border-b border-transparent' 
           : 'bg-background/95 backdrop-blur-sm border-b border-border'
@@ -128,9 +129,11 @@ const Header = ({ hasHero = false }: HeaderProps) => {
 
           {/* Logo */}
           <Link to="/" className="absolute left-1/2 -translate-x-1/2">
-            <h1 className={`font-serif font-bold text-2xl lg:text-3xl tracking-widest ${isTransparent ? 'text-background' : ''}`}>
-              RAR
-            </h1>
+            <img
+              src="/logo.png"
+              alt="RAR Studio"
+              className={`h-11 w-auto lg:h-16 object-contain transition-[filter] ${isTransparent ? 'brightness-0 invert' : ''}`}
+            />
           </Link>
 
           {/* Right Navigation */}

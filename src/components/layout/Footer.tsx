@@ -12,7 +12,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 lg:gap-8">
           {/* Brand */}
           <div className="lg:col-span-1">
-            <h2 className="font-serif font-bold text-2xl tracking-widest mb-6">RAR</h2>
+            <img src="/logo.png" alt="RAR Studio" className="h-14 w-auto mb-6 object-contain brightness-0 invert" />
             <p className="text-sm font-light leading-relaxed opacity-70">
               Timeless elegance for the modern woman. Crafted with love, designed for you.
             </p>

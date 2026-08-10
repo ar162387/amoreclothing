@@ -2,6 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import {
   SITE_NAME,
+  SITE_TITLE,
+  SITE_DESCRIPTION,
   absoluteUrl,
   buildOrganizationJsonLd,
   buildWebsiteJsonLd,
@@ -123,7 +125,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         404,
         renderPage({
           title: `Product not found | ${SITE_NAME}`,
-          description: `Shop ${SITE_NAME} — timeless luxury fashion, crafted for the modern woman.`,
+          description: SITE_DESCRIPTION,
           canonicalPath: '/',
           jsonLd: [],
           bodyHtml: `<h1>Product not found</h1><p><a href="/">Return to ${escapeHtml(SITE_NAME)}</a></p>`,
@@ -221,8 +223,8 @@ ${product.collections?.name ? `<p>Collection: ${escapeHtml(product.collections.n
     res,
     200,
     renderPage({
-      title: `${SITE_NAME} | Timeless Luxury Fashion`,
-      description: hero.body,
+      title: SITE_TITLE,
+      description: hero.body || SITE_DESCRIPTION,
       canonicalPath: '/',
       jsonLd: [buildOrganizationJsonLd(contactInfo), buildWebsiteJsonLd()],
       bodyHtml: `

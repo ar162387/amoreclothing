@@ -57,7 +57,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
         <button onClick={() => setIsSidebarOpen(true)} className="p-2">
           <Menu className="h-5 w-5" />
         </button>
-        <h1 className="font-serif text-xl tracking-widest font-bold">RAR</h1>
+        <img src="/logo.png" alt="RAR Studio" className="h-9 w-auto object-contain" />
         <Link to="/" className="p-2">
           <ExternalLink className="h-5 w-5" />
         </Link>
@@ -69,7 +69,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
           }`}
       >
         <div className="flex items-center justify-between h-16 px-6 border-b border-border">
-          <h1 className="font-serif text-xl tracking-widest font-bold">RAR</h1>
+          <img src="/logo.png" alt="RAR Studio" className="h-9 w-auto object-contain" />
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2">
             <X className="h-5 w-5" />
           </button>

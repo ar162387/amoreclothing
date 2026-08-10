@@ -5,6 +5,7 @@ import { useCartTotalItems, useCartStore } from '@/store/cartStore';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { productsService, Product } from '@/services/products';
 import { formatPrice } from '@/data/store';
+import { getOptimizedImageUrl } from '@/lib/productImage';
 
 interface HeaderProps {
   hasHero?: boolean;
@@ -109,7 +110,10 @@ const Header = ({ hasHero = false, staticHeader = false }: HeaderProps) => {
         <div className="flex items-center justify-between h-16 lg:h-20">
           {/* Mobile Menu */}
           <Sheet>
-            <SheetTrigger className={`lg:hidden p-2 -ml-2 ${isTransparent ? 'text-background' : ''}`}>
+            <SheetTrigger
+              aria-label="Open menu"
+              className={`lg:hidden p-2 -ml-2 ${isTransparent ? 'text-background' : ''}`}
+            >
               <Menu className="h-5 w-5" />
             </SheetTrigger>
             <SheetContent side="left" className="w-80 bg-background">
@@ -132,6 +136,8 @@ const Header = ({ hasHero = false, staticHeader = false }: HeaderProps) => {
             <img
               src="/logo.png"
               alt="RAR Studio"
+              width={1002}
+              height={547}
               className={`h-11 w-auto lg:h-16 object-contain transition-[filter] ${isTransparent ? 'brightness-0 invert' : ''}`}
             />
           </Link>
@@ -154,13 +160,15 @@ const Header = ({ hasHero = false, staticHeader = false }: HeaderProps) => {
 
             <button
               onClick={() => (isSearchOpen ? closeSearch() : setIsSearchOpen(true))}
+              aria-label={isSearchOpen ? 'Close search' : 'Search'}
               className={`p-2 hover:opacity-60 transition-opacity ${isTransparent ? 'text-background' : ''}`}
             >
               <Search className="h-4 w-4" />
             </button>
 
-            <button 
+            <button
               onClick={openCart}
+              aria-label={`Open cart${totalItems > 0 ? `, ${totalItems} items` : ''}`}
               className={`p-2 relative hover:opacity-60 transition-opacity ${isTransparent ? 'text-background' : ''}`}
             >
               <ShoppingBag className="h-4 w-4" />
@@ -208,8 +216,10 @@ const Header = ({ hasHero = false, staticHeader = false }: HeaderProps) => {
                       <div className="w-12 h-16 bg-secondary flex-shrink-0 overflow-hidden">
                         {product.image_front && (
                           <img
-                            src={product.image_front}
+                            src={getOptimizedImageUrl(product.image_front, 96)}
                             alt={product.name}
+                            loading="lazy"
+                            decoding="async"
                             className="w-full h-full object-cover"
                           />
                         )}

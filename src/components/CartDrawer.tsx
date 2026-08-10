@@ -5,6 +5,7 @@ import { useCartStore, getCartTotals } from '@/store/cartStore';
 import { formatPrice } from '@/data/store';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { getOptimizedImageUrl } from '@/lib/productImage';
 
 const CartDrawer = () => {
   const navigate = useNavigate();
@@ -74,8 +75,10 @@ const CartDrawer = () => {
                       >
                         {imageSrc && (
                           <img
-                            src={imageSrc}
+                            src={getOptimizedImageUrl(imageSrc, 160)}
                             alt={item.product.name}
+                            loading="lazy"
+                            decoding="async"
                             className="w-full h-full object-cover"
                           />
                         )}

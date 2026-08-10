@@ -8,5 +8,11 @@
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/image.ts": {
+      "memory": 1769,
+      "maxDuration": 30
+    }
+  }
 }

@@ -7,6 +7,12 @@
     <meta name="description" content="RAR Studio brings western luxury fashion, made in Pakistan — timeless pieces crafted for the modern woman." />
     <meta name="author" content="RAR Studio" />
 
+    <!-- The only cross-origin host still on the critical path once fonts are self-hosted and product
+         images are proxied same-origin (see src/lib/productImage.ts) — the Supabase REST API used for
+         the products/site_content fetches on first paint. Vite's built-in %VAR% HTML substitution
+         resolves this per environment at build time, so it never drifts if the project URL changes. -->
+    <link rel="preconnect" href="%VITE_SUPABASE_URL%" crossorigin />
+
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="/favicon-512.png" />

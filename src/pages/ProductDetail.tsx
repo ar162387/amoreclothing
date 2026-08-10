@@ -10,6 +10,10 @@ import MobileAddToBagBar from '@/components/MobileAddToBagBar';
 import { useCartStore } from '@/store/cartStore';
 import { useSeo } from '@/hooks/use-seo';
 import { absoluteUrl, buildProductJsonLd, SITE_NAME, SITE_TITLE, SITE_DESCRIPTION } from '@/lib/seo';
+import { getOptimizedImageUrl, buildSrcSet } from '@/lib/productImage';
+
+const GALLERY_WIDTHS = [480, 640, 828, 1080, 1280, 1600];
+const GALLERY_SIZES = '(min-width: 1024px) 50vw, 100vw';
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -157,8 +161,11 @@ const ProductDetail = () => {
             className="w-full aspect-[3/4] bg-secondary block"
           >
             <img
-              src={images[0]}
+              src={getOptimizedImageUrl(images[0], 828)}
+              srcSet={buildSrcSet(images[0], GALLERY_WIDTHS)}
+              sizes={GALLERY_SIZES}
               alt={`${product.name} - View 1`}
+              fetchPriority="high"
               className="w-full h-full object-cover"
             />
           </button>
@@ -181,8 +188,12 @@ const ProductDetail = () => {
             className="mt-6 w-full aspect-[3/4] bg-secondary block"
           >
             <img
-              src={images[1]}
+              src={getOptimizedImageUrl(images[1], 828)}
+              srcSet={buildSrcSet(images[1], GALLERY_WIDTHS)}
+              sizes={GALLERY_SIZES}
               alt={`${product.name} - View 2`}
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover"
             />
           </button>
@@ -210,8 +221,12 @@ const ProductDetail = () => {
                   className="w-full aspect-[3/4] bg-secondary block"
                 >
                   <img
-                    src={imageUrl}
+                    src={getOptimizedImageUrl(imageUrl, 828)}
+                    srcSet={buildSrcSet(imageUrl, GALLERY_WIDTHS)}
+                    sizes={GALLERY_SIZES}
                     alt={`${product.name} - View ${index + 1}`}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover"
                   />
                 </button>
@@ -309,8 +324,13 @@ const ProductDetail = () => {
                   className="w-full aspect-[3/4] bg-secondary block cursor-zoom-in"
                 >
                   <img
-                    src={imageUrl}
+                    src={getOptimizedImageUrl(imageUrl, 828)}
+                    srcSet={buildSrcSet(imageUrl, GALLERY_WIDTHS)}
+                    sizes={GALLERY_SIZES}
                     alt={`${product.name} - View ${index + 1}`}
+                    fetchPriority={index === 0 ? 'high' : undefined}
+                    loading={index === 0 ? undefined : 'lazy'}
+                    decoding="async"
                     className="w-full h-full object-cover"
                   />
                 </button>

@@ -3,6 +3,9 @@ import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { useActiveIndex } from '@/hooks/use-active-index';
 import { useZoomPan } from '@/hooks/use-zoom-pan';
+import { getOptimizedImageUrl, buildSrcSet } from '@/lib/productImage';
+
+const VIEWER_WIDTHS = [828, 1080, 1280, 1600, 2000, 2560, 3200];
 
 interface ProductFullscreenViewerProps {
   images: string[];
@@ -20,7 +23,9 @@ const ZoomableImage = ({ src, alt }: { src: string; alt: string }) => {
   return (
     <img
       ref={imgRef}
-      src={src}
+      src={getOptimizedImageUrl(src, 1600, 'hi')}
+      srcSet={buildSrcSet(src, VIEWER_WIDTHS, 'hi')}
+      sizes="100vw"
       alt={alt}
       draggable={false}
       className={`block w-full h-screen object-cover lg:h-auto lg:object-fill select-none ${
@@ -150,8 +155,10 @@ const ProductFullscreenViewer = ({
                   }`}
                 >
                   <img
-                    src={imageUrl}
+                    src={getOptimizedImageUrl(imageUrl, 160)}
                     alt={`${productName} thumbnail ${index + 1}`}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover"
                   />
                 </button>

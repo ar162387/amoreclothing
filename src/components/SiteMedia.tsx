@@ -78,6 +78,7 @@ const SiteMedia = ({ media, className, alt, priority = false, active = true }: S
       alt={alt ?? media.alt ?? ''}
       className={className}
       loading={priority ? 'eager' : 'lazy'}
+      fetchPriority={priority ? 'high' : 'auto'}
     />
   );
 };

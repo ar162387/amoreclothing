@@ -14,4 +14,9 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    // Emits .map files for error-tracking/debugging without exposing readable source via the
+    // browser's Sources tab (unlike `sourcemap: true`) — no sourceMappingURL comment is added.
+    sourcemap: "hidden",
+  },
 }));

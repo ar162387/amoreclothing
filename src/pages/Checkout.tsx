@@ -1,15 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { ChevronLeft } from 'lucide-react';
 import { useCartStore, getCartTotals } from '@/store/cartStore';
 import { formatPrice } from '@/data/store';
+import { calcShipping } from '@/shared/pricing';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { ordersService } from '@/services/orders';
+import { createOrder } from '@/services/checkout';
 
 interface CheckoutFormData {
   emailOrPhone: string;
@@ -21,11 +22,50 @@ interface CheckoutFormData {
   paymentMethod: 'cash' | 'card';
 }
 
+const PENDING_ORDER_KEY = 'amore-pending-order';
+const PENDING_ORDER_MAX_AGE_MS = 30 * 60 * 1000;
+
+interface PendingOrderMarker {
+  publicToken: string;
+  idempotencyKey: string;
+  at: number;
+}
+
+function readPendingOrder(): PendingOrderMarker | null {
+  try {
+    const raw = localStorage.getItem(PENDING_ORDER_KEY);
+    if (!raw) return null;
+    const marker = JSON.parse(raw) as PendingOrderMarker;
+    if (Date.now() - marker.at > PENDING_ORDER_MAX_AGE_MS) {
+      localStorage.removeItem(PENDING_ORDER_KEY);
+      return null;
+    }
+    return marker;
+  } catch {
+    return null;
+  }
+}
+
 const Checkout = () => {
   const navigate = useNavigate();
-  const { items, clearCart } = useCartStore();
+  const { items, clearCart, removeItem, syncPrices } = useCartStore();
   const { totalItems, totalPrice } = getCartTotals(items);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [pendingOrder, setPendingOrder] = useState<PendingOrderMarker | null>(null);
+
+  // Stable per-visit idempotency key. Regenerated only when there's no unresolved pending order
+  // to resume — this is what makes a reload/back-navigation dedupe server-side instead of
+  // creating a second order for the same submission.
+  const idempotencyKeyRef = useRef<string>('');
+  if (!idempotencyKeyRef.current) {
+    const existing = readPendingOrder();
+    idempotencyKeyRef.current = existing?.idempotencyKey ?? crypto.randomUUID();
+  }
+
+  useEffect(() => {
+    setPendingOrder(readPendingOrder());
+  }, []);
 
   const {
     register,
@@ -40,6 +80,8 @@ const Checkout = () => {
   });
 
   const paymentMethod = watch('paymentMethod');
+  const shippingCost = calcShipping(totalPrice);
+  const finalTotal = totalPrice + shippingCost;
 
   const onSubmit = async (data: CheckoutFormData) => {
     if (items.length === 0) {
@@ -50,38 +92,67 @@ const Checkout = () => {
     setIsSubmitting(true);
 
     try {
-      const orderData = {
-        customer_email_or_phone: data.emailOrPhone,
-        customer_first_name: data.firstName,
-        customer_last_name: data.lastName,
-        customer_address: data.address,
-        customer_apartment: data.apartment || undefined,
-        customer_city: data.city,
-        payment_method: data.paymentMethod,
+      const result = await createOrder({
+        customer: {
+          emailOrPhone: data.emailOrPhone,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          address: data.address,
+          apartment: data.apartment || undefined,
+          city: data.city,
+        },
+        paymentMethod: data.paymentMethod,
         items: items.map((item) => ({
-          product_id: item.product.id,
+          productId: item.product.id,
           size: item.size,
           quantity: item.quantity,
-          price: Number(item.product.price),
+          clientPrice: Number(item.product.price),
         })),
-        subtotal: totalPrice,
-        shipping: shippingCost,
-        total: finalTotal,
-      };
+        idempotencyKey: idempotencyKeyRef.current,
+      });
 
-      const { data: order, error } = await ordersService.createOrder(orderData);
-
-      if (error) {
-        console.error('Order creation error:', error);
+      if (result.ok === false) {
+        if (result.code === 'ITEM_UNAVAILABLE') {
+          result.productIds.forEach((productId) => {
+            const item = items.find((i) => i.product.id === productId);
+            if (item) removeItem(item.product.id, item.size);
+          });
+          toast.error('Some items in your bag are no longer available and have been removed.');
+          return;
+        }
+        if (result.code === 'PRICE_CHANGED') {
+          syncPrices(result.prices);
+          toast.error('Prices have been updated — please review your bag before continuing.');
+          return;
+        }
         toast.error('Failed to place order. Please try again.');
         return;
       }
 
-      toast.success('Order placed successfully!');
-      
-      // Clear cart and redirect
-      clearCart();
-      navigate('/');
+      if (data.paymentMethod === 'cash') {
+        localStorage.removeItem(PENDING_ORDER_KEY);
+        clearCart();
+        toast.success('Order placed successfully!');
+        navigate(result.redirectTo ?? `/order/confirmation/${result.publicToken}`, { replace: true });
+        return;
+      }
+
+      // Card: do NOT clear the cart here — if the payment fails or is cancelled, the customer
+      // must not lose their bag. OrderStatus.tsx clears it only once payment actually succeeds.
+      localStorage.setItem(
+        PENDING_ORDER_KEY,
+        JSON.stringify({
+          publicToken: result.publicToken,
+          idempotencyKey: idempotencyKeyRef.current,
+          at: Date.now(),
+        } satisfies PendingOrderMarker)
+      );
+      if (result.checkoutUrl) {
+        setIsRedirecting(true);
+        window.location.assign(result.checkoutUrl);
+      } else {
+        navigate(`/order/confirmation/${result.publicToken}`, { replace: true });
+      }
     } catch (error) {
       console.error('Checkout error:', error);
       toast.error('Failed to place order. Please try again.');
@@ -89,6 +160,17 @@ const Checkout = () => {
       setIsSubmitting(false);
     }
   };
+
+  if (isRedirecting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center px-6">
+          <div className="animate-pulse font-serif text-2xl font-light mb-3">Redirecting to secure payment…</div>
+          <p className="text-sm text-muted-foreground">Please do not close this window.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (items.length === 0) {
     return (
@@ -106,9 +188,6 @@ const Checkout = () => {
     );
   }
 
-  const shippingCost = totalPrice >= 15000 ? 0 : 500;
-  const finalTotal = totalPrice + shippingCost;
-
   return (
     <div className="min-h-screen">
       <div className="container mx-auto px-6 py-8 lg:py-12">
@@ -120,6 +199,34 @@ const Checkout = () => {
           <ChevronLeft className="h-4 w-4" />
           Back
         </button>
+
+        {pendingOrder && (
+          <div className="mb-8 border border-border bg-secondary/50 px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              You have a payment in progress from a previous attempt.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => navigate(`/order/confirmation/${pendingOrder.publicToken}`)}
+                className="text-sm underline"
+              >
+                Check payment status
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.removeItem(PENDING_ORDER_KEY);
+                  idempotencyKeyRef.current = crypto.randomUUID();
+                  setPendingOrder(null);
+                }}
+                className="text-sm underline text-muted-foreground"
+              >
+                Start over
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           {/* Checkout Form */}
@@ -256,15 +363,20 @@ const Checkout = () => {
                       Cash on Delivery
                     </Label>
                   </div>
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-start space-x-2">
                     <RadioGroupItem
                       value="card"
                       id="card"
-                      disabled
+                      className="mt-1"
                     />
-                    <Label htmlFor="card" className="font-normal cursor-pointer text-muted-foreground">
-                      Card (Coming Soon!)
-                    </Label>
+                    <div>
+                      <Label htmlFor="card" className="font-normal cursor-pointer">
+                        Card — Visa / Mastercard
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Secured by Safepay. Local & international cards accepted.
+                      </p>
+                    </div>
                   </div>
                 </RadioGroup>
               </div>

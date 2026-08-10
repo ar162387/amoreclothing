@@ -1,4 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { PaymentStatus } from "@/shared/orderStatus";
+
+/** PostgREST returns `numeric` columns as STRINGS, not numbers — always wrap in Number(...)
+ * before doing arithmetic or a `=== 0` comparison. (This bit the admin's "Free" shipping label:
+ * `order.shipping === 0` silently failed because `order.shipping` was the string `"0"`.) */
 
 export interface OrderItem {
   id: string;
@@ -34,25 +39,37 @@ export interface Order {
   item_count?: number; // Count of items for list view
   // Join fields
   order_items?: OrderItem[];
+
+  // --- Payment fields (SQL/payments.sql) ---
+  payment_status: PaymentStatus;
+  payment_provider: string | null;
+  safepay_tracker: string | null;
+  safepay_environment: 'sandbox' | 'production' | null;
+  currency: string;
+  amount_paid: number | null;
+  payment_fee: number | null;
+  payment_net: number | null;
+  card_brand: string | null;
+  card_last4: string | null;
+  charged_at: string | null;
+  payment_failure_code: string | null;
+  payment_failure_message: string | null;
+  refunded_amount: number;
+  refunded_at: string | null;
+  public_token: string;
 }
 
-export interface CreateOrderDTO {
-  customer_email_or_phone: string;
-  customer_first_name: string;
-  customer_last_name: string;
-  customer_address: string;
-  customer_apartment?: string;
-  customer_city: string;
-  payment_method: 'cash' | 'card';
-  items: Array<{
-    product_id: string;
-    size: string;
-    quantity: number;
-    price: number;
-  }>;
-  subtotal: number;
-  shipping: number;
-  total: number;
+export interface PaymentEvent {
+  id: string;
+  order_id: string | null;
+  provider: string;
+  event_type: string;
+  tracker: string | null;
+  payload: Record<string, unknown>;
+  signature_verified: boolean;
+  received_at: string;
+  processed_at: string | null;
+  process_error: string | null;
 }
 
 export interface UpdateOrderStatusDTO {
@@ -128,51 +145,11 @@ export const ordersService = {
     };
   },
 
-  async createOrder(orderData: CreateOrderDTO) {
-    // Start a transaction by creating the order first
-    const { data: order, error: orderError } = await supabase
-      .from("orders")
-      .insert({
-        customer_email_or_phone: orderData.customer_email_or_phone,
-        customer_first_name: orderData.customer_first_name,
-        customer_last_name: orderData.customer_last_name,
-        customer_address: orderData.customer_address,
-        customer_apartment: orderData.customer_apartment || null,
-        customer_city: orderData.customer_city,
-        payment_method: orderData.payment_method,
-        subtotal: orderData.subtotal,
-        shipping: orderData.shipping,
-        total: orderData.total,
-      })
-      .select()
-      .single();
-
-    if (orderError || !order) {
-      return { data: null, error: orderError };
-    }
-
-    // Insert order items
-    const orderItems = orderData.items.map((item) => ({
-      order_id: order.id,
-      product_id: item.product_id,
-      size: item.size,
-      quantity: item.quantity,
-      price: item.price,
-    }));
-
-    const { error: itemsError } = await supabase
-      .from("order_items")
-      .insert(orderItems);
-
-    if (itemsError) {
-      // If items insert fails, we should ideally rollback, but Supabase doesn't support transactions
-      // For now, we'll return an error
-      return { data: null, error: itemsError };
-    }
-
-    // Fetch the complete order with items
-    return await this.getOrderById(order.id);
-  },
+  // Order creation moved server-side (api/orders/create.ts) — see src/services/checkout.ts.
+  // The anon key never had an INSERT policy on `orders` once RLS tightened to authenticated-only,
+  // so a direct client insert here could never actually succeed for a real (logged-out)
+  // customer, and it trusted client-supplied prices besides. Removed rather than left dead, so
+  // nobody reintroduces the client-priced insert by calling it.
 
   async updateOrderStatus(id: string, status: UpdateOrderStatusDTO['status']) {
     return await supabase
@@ -181,5 +158,13 @@ export const ordersService = {
       .eq("id", id)
       .select()
       .single();
+  },
+
+  async getPaymentEvents(orderId: string) {
+    return await supabase
+      .from("payment_events")
+      .select("id, order_id, provider, event_type, tracker, payload, signature_verified, received_at, processed_at, process_error")
+      .eq("order_id", orderId)
+      .order("received_at", { ascending: false });
   },
 };

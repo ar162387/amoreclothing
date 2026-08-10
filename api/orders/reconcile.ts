@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
-import { serviceClient, safepayConfig, applyTransition } from '../../server/paymentApi';
+import { serviceClient, safepayConfig, applyTransition } from '../../server/paymentApi.js';
 
 /**
  * Powers the admin "Sync payment status" button, for when a webhook is missed. The only route

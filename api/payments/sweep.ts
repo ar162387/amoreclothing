@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { serviceClient, safepayConfig, applyTransition } from '../../server/paymentApi';
+import { serviceClient, safepayConfig, applyTransition } from '../../server/paymentApi.js';
 
 /**
  * Cron sweeper (see vercel.json's "crons" entry — daily, at 03:00; Vercel's Hobby plan only

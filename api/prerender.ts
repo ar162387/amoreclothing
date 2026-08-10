@@ -9,8 +9,8 @@ import {
   buildWebsiteJsonLd,
   buildContactPageJsonLd,
   buildProductJsonLd,
-} from '../src/lib/seo';
-import type { ContactInfo } from '../src/services/siteContent';
+} from '../src/lib/seo.js';
+import type { ContactInfo } from '../src/services/siteContent.js';
 
 /**
  * Serves real, crawlable HTML to bots that don't execute JavaScript (GPTBot, ClaudeBot,

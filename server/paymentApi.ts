@@ -1,24 +1,30 @@
 import type { VercelRequest } from '@vercel/node';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
-import { planPaymentTransition, type TransitionInput } from '../src/shared/paymentTransitions';
-import type { PaymentStatus } from '../src/shared/orderStatus';
-import { SAFEPAY_HOSTS, type SafepayEnv } from '../src/shared/safepay';
+import { planPaymentTransition, type TransitionInput } from '../src/shared/paymentTransitions.js';
+import type { PaymentStatus } from '../src/shared/orderStatus.js';
+import { SAFEPAY_HOSTS, type SafepayEnv } from '../src/shared/safepay.js';
 
 /**
  * Shared server-side helpers for the payment API routes.
  *
- * Lives OUTSIDE api/ entirely (not api/_lib/) — a leading-underscore directory under api/ looks
- * like the standard "exclude this from routing" trick, but on Vercel it also excludes the file
- * from the deployed function bundle outright: every api/*.ts that imported '../_lib/server'
- * 500'd in production with `ERR_MODULE_NOT_FOUND`, even though the exact same relative-import-
- * from-outside-api/ pattern (`../../src/shared/*`) works fine. Mirrors how src/shared/* already
- * works for code shared with the client — this is that same pattern for code that's server-only
- * (uses node:crypto, a service-role Supabase client) and therefore must NOT live under src/,
- * which tsconfig.app.json (the browser/Vite build) type-checks with browser lib types only.
+ * Lives OUTSIDE api/ (not api/_lib/) — mirrors how src/shared/* already works for code shared
+ * with the client, since this is that same pattern for code that's server-only (uses
+ * node:crypto, a service-role Supabase client) and therefore must NOT live under src/, which
+ * tsconfig.app.json (the browser/Vite build) type-checks with browser lib types only.
  *
- * Same `process.env` / relative-import conventions as the existing api/*.ts files (see
- * api/sitemap.ts, api/prerender.ts) — `@/` does not resolve here.
+ * IMPORTANT — this package.json has "type": "module", so Vercel deploys api/*.ts as real Node
+ * ESM, transpiled per-file rather than bundled into one file per function. Node's own (strict)
+ * ESM resolver runs at request time and, unlike TypeScript's "bundler" moduleResolution (which
+ * tsc happily typechecks without complaint), it does NOT auto-append extensions to relative
+ * specifiers. Every relative import — here and in every api/*.ts file that imports this module —
+ * MUST end in an explicit `.js` (referring to this file's compiled output, even though the
+ * source is `.ts`). Omitting it typechecks fine locally and fails 100% of the time in production
+ * with `ERR_MODULE_NOT_FOUND: Cannot find module '/var/task/...'` — this bit api/prerender.ts's
+ * pre-existing `../src/lib/seo` import too, unrelated to this feature, now fixed alongside it.
+ *
+ * Same `process.env` conventions as the existing api/*.ts files (see api/sitemap.ts) — `@/` does
+ * not resolve here.
  */
 
 // ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
-import { serviceClient, siteOrigin, safepayConfig } from '../../server/paymentApi';
-import { calcTotals, toMinorUnits } from '../../src/shared/pricing';
+import { serviceClient, siteOrigin, safepayConfig } from '../../server/paymentApi.js';
+import { calcTotals, toMinorUnits } from '../../src/shared/pricing.js';
 
 /**
  * Server-authoritative order creation. Replaces the old client-side direct-insert

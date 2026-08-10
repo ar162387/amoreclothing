@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { serviceClient, safepayConfig, applyTransition } from '../../server/paymentApi';
+import { serviceClient, safepayConfig, applyTransition } from '../../server/paymentApi.js';
 
 /**
  * Customer-facing order status, keyed by the unguessable `public_token` (never the raw order

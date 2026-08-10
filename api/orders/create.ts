@@ -70,14 +70,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ---------------------------------------------------------------------
     const { data: existing, error: existingError } = await supabase
       .from('orders')
-      .select('id, public_token, payment_method, payment_status, safepay_tracker, safepay_environment')
+      .select('id, public_token, payment_method, payment_status, safepay_tracker, safepay_environment, total')
       .eq('idempotency_key', idempotencyKey)
       .maybeSingle();
 
     if (existingError) throw existingError;
 
     if (existing) {
-      const result = await respondForExistingOrder(req, existing);
+      const result = await respondForExistingOrder(req, supabase, existing);
       res.status(200).json(result);
       return;
     }
@@ -174,12 +174,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if ((createError as { code?: string }).code === '23505') {
         const { data: raced, error: racedError } = await supabase
           .from('orders')
-          .select('id, public_token, payment_method, payment_status, safepay_tracker, safepay_environment')
+          .select('id, public_token, payment_method, payment_status, safepay_tracker, safepay_environment, total')
           .eq('idempotency_key', idempotencyKey)
           .maybeSingle();
         if (racedError) throw racedError;
         if (raced) {
-          const result = await respondForExistingOrder(req, raced);
+          const result = await respondForExistingOrder(req, supabase, raced);
           res.status(200).json(result);
           return;
         }
@@ -208,7 +208,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ---------------------------------------------------------------------
     const session = await createSafepaySession({ req, orderId, publicToken, totalPkr: totals.total });
 
-    if (!session.ok) {
+    if (session.ok === false) {
       // Leave the order in awaiting_payment (not failed) so the sweeper can expire it and a
       // retry with the same idempotencyKey reuses this row instead of orphaning a new one.
       await supabase.from('payment_events').insert({
@@ -255,16 +255,21 @@ interface ExistingOrderRow {
   payment_status: string;
   safepay_tracker: string | null;
   safepay_environment: 'sandbox' | 'production' | null;
+  total: number | string;
 }
 
-async function respondForExistingOrder(req: VercelRequest, order: ExistingOrderRow) {
+async function respondForExistingOrder(
+  req: VercelRequest,
+  supabase: ReturnType<typeof serviceClient>,
+  order: ExistingOrderRow
+) {
   if (order.payment_method === 'cash' || order.payment_status === 'paid') {
     return { orderId: order.id, publicToken: order.public_token, redirectTo: `/order/confirmation/${order.public_token}` };
   }
 
-  // Card order still awaiting payment — re-mint a fresh client token and rebuild the checkout
-  // URL from the stored tracker. Never cache/replay a checkout URL: the `tbt` token expires
-  // after 1 hour, so a stale cached URL would 401 on the customer.
+  // Card order still awaiting payment WITH a tracker — re-mint a fresh client token and rebuild
+  // the checkout URL from that stored tracker. Never cache/replay a checkout URL: the `tbt`
+  // token expires after 1 hour, so a stale cached URL would 401 on the customer.
   if (order.safepay_tracker && order.safepay_environment) {
     const config = safepayConfig();
     const tbt = await mintClientToken(config);
@@ -279,10 +284,48 @@ async function respondForExistingOrder(req: VercelRequest, order: ExistingOrderR
       });
       return { orderId: order.id, publicToken: order.public_token, checkoutUrl };
     }
+    // tbt minting failed — fall through to a full session retry below rather than dead-ending.
   }
 
-  // Fall back to sending them to the status page, which will reconcile-on-read.
-  return { orderId: order.id, publicToken: order.public_token, redirectTo: `/order/confirmation/${order.public_token}` };
+  // Card order awaiting payment with NO tracker: the first attempt's Safepay session creation
+  // never succeeded (e.g. Safepay was unreachable, or — as happened once in testing — the
+  // required env vars weren't set yet). Retry it fresh on this same order rather than silently
+  // redirecting to a confirmation page that can never resolve (reconcile-on-read has nothing to
+  // reconcile against without a tracker). This is what makes a retry after a transient Safepay
+  // outage actually work instead of permanently stranding the order.
+  const session = await createSafepaySession({ req, orderId: order.id, publicToken: order.public_token, totalPkr: Number(order.total) });
+
+  if (session.ok === false) {
+    await supabase.from('payment_events').insert({
+      order_id: order.id,
+      event_type: 'internal.session_failed',
+      payload: { error: session.error },
+    });
+    // Still send them to the status page rather than an error — reconcile-on-read there is
+    // harmless (no tracker means it just reports awaiting_payment), and this keeps the response
+    // shape uniform. The customer sees "confirming" briefly, then the pollsExhausted fallback
+    // copy ("still confirming... contact us") — better than a raw 502 on a checkout retry.
+    return { orderId: order.id, publicToken: order.public_token, redirectTo: `/order/confirmation/${order.public_token}` };
+  }
+
+  await supabase
+    .from('orders')
+    .update({
+      payment_provider: 'safepay',
+      safepay_tracker: session.tracker,
+      safepay_environment: session.environment,
+      payment_amount_minor: session.amountMinor,
+    })
+    .eq('id', order.id);
+
+  await supabase.from('payment_events').insert({
+    order_id: order.id,
+    event_type: 'internal.session_created',
+    tracker: session.tracker,
+    payload: { amount_minor: session.amountMinor, retried: true },
+  });
+
+  return { orderId: order.id, publicToken: order.public_token, checkoutUrl: session.checkoutUrl };
 }
 
 interface SafepaySessionResult {

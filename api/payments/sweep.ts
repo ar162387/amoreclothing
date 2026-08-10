@@ -36,7 +36,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     .from('orders')
     .select('id, safepay_tracker, amount_paid')
     .eq('payment_status', 'awaiting_payment')
-    .not('safepay_tracker', 'is', null)
     .lt('created_at', cutoff)
     .limit(BATCH_LIMIT);
 
@@ -52,7 +51,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let skipped = 0;
 
   for (const order of staleOrders ?? []) {
-    if (!order.safepay_tracker) continue;
+    // No tracker at all means the Safepay session was never successfully created (e.g. an
+    // outage, or misconfigured env vars) — nothing to reconcile against, so go straight to
+    // expired rather than skipping it forever (that used to leave these as permanent zombies).
+    if (!order.safepay_tracker) {
+      const result = await applyTransition({
+        orderId: order.id,
+        current: 'awaiting_payment',
+        eventType: 'internal.expire',
+        data: {},
+      });
+      if (result.applied) expired++;
+      continue;
+    }
     try {
       const reportRes = await fetch(
         `${config.apiHost}/reporter/api/v1/payments/${encodeURIComponent(order.safepay_tracker)}`,

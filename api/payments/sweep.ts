@@ -2,10 +2,15 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { serviceClient, safepayConfig, applyTransition } from '../_lib/server';
 
 /**
- * Cron sweeper (see vercel.json's "crons" entry, every 15 minutes). Catches orders stuck in
- * awaiting_payment for over an hour — a lost webhook plus a closed tab would otherwise leave a
- * permanent zombie row that never resolves. Reconciles each against Safepay directly; marks
- * `paid` if it actually completed, `expired` if it didn't. Capped at 50 per run.
+ * Cron sweeper (see vercel.json's "crons" entry — daily, at 03:00; Vercel's Hobby plan only
+ * permits daily cron schedules, so this is a same-day safety net rather than a near-real-time
+ * one. The fast path for a missed webhook is reconcile-on-read in api/orders/status.ts, which
+ * runs on every visit to the confirmation page regardless of this cron; this sweep only matters
+ * for an order nobody ever revisits. Upgrading to Pro would allow a tighter schedule.).
+ * Catches orders stuck in awaiting_payment for over an hour — a lost webhook plus a closed tab
+ * would otherwise leave a permanent zombie row that never resolves. Reconciles each against
+ * Safepay directly; marks `paid` if it actually completed, `expired` if it didn't. Capped at 50
+ * per run.
  *
  * Guarded by CRON_SECRET, which Vercel automatically sends as `Authorization: Bearer
  * <CRON_SECRET>` on cron-triggered invocations — see

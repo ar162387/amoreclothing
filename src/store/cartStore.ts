@@ -17,6 +17,12 @@ interface CartStore {
   removeItem: (productId: string, size: string) => void;
   updateQuantity: (productId: string, size: string, quantity: number) => void;
   clearCart: () => void;
+  /** Patches item.product.price in place for the given products. Called after the server
+   * recomputes prices at checkout and finds a stale one (cart snapshots the whole product
+   * object at add-to-cart time, so a price change since then never reaches an existing cart
+   * item on its own). Minimal, targeted fix — it does not re-fetch or otherwise touch the rest
+   * of the product. */
+  syncPrices: (updates: { productId: string; price: number }[]) => void;
 }
 
 export const useCartStore = create<CartStore>()(
@@ -71,6 +77,17 @@ export const useCartStore = create<CartStore>()(
       },
       
       clearCart: () => set({ items: [] }),
+
+      syncPrices: (updates) => {
+        const byId = new Map(updates.map((u) => [u.productId, u.price]));
+        set((state) => ({
+          items: state.items.map((item) =>
+            byId.has(item.product.id)
+              ? { ...item, product: { ...item.product, price: byId.get(item.product.id)! } }
+              : item
+          ),
+        }));
+      },
     }),
     {
       name: 'amore-cart-storage',

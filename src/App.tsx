@@ -15,6 +15,7 @@ import ProductDetail from "./pages/ProductDetail";
 import SizeGuide from "./pages/SizeGuide";
 import Contact from "./pages/Contact";
 import Checkout from "./pages/Checkout";
+import OrderStatus from "./pages/OrderStatus";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 
@@ -62,6 +63,10 @@ const App = () => (
               <Route path="/size-guide" element={<SizeGuide />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/checkout" element={<Checkout />} />
+              {/* Static (not lazy) imports — these are on the money path, and a lazy chunk that
+                  fails to load after a successful charge would be a support ticket. */}
+              <Route path="/order/confirmation/:token" element={<OrderStatus mode="confirmation" />} />
+              <Route path="/order/cancelled/:token" element={<OrderStatus mode="cancelled" />} />
               <Route path="/login" element={<Login />} />
 
               <Route

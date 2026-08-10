@@ -3,6 +3,7 @@ import { Plus, Minus, ShoppingBag, X } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useCartStore, getCartTotals } from '@/store/cartStore';
 import { formatPrice } from '@/data/store';
+import { calcShipping, FREE_SHIPPING_THRESHOLD } from '@/shared/pricing';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getOptimizedImageUrl } from '@/lib/productImage';
@@ -11,6 +12,7 @@ const CartDrawer = () => {
   const navigate = useNavigate();
   const { items, isOpen, closeCart, removeItem, updateQuantity } = useCartStore();
   const { totalItems, totalPrice } = getCartTotals(items);
+  const shippingCost = calcShipping(totalPrice);
 
   const handleCheckout = () => {
     const message = items
@@ -155,16 +157,14 @@ const CartDrawer = () => {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Shipping</span>
-                  <span>{totalPrice >= 15000 ? 'Free' : formatPrice(500)}</span>
+                  <span>{shippingCost === 0 ? 'Free' : formatPrice(shippingCost)}</span>
                 </div>
               </div>
 
               <div className="border-t border-border pt-4">
                 <div className="flex justify-between font-medium mb-4">
                   <span>Total</span>
-                  <span>
-                    {formatPrice(totalPrice >= 15000 ? totalPrice : totalPrice + 500)}
-                  </span>
+                  <span>{formatPrice(totalPrice + shippingCost)}</span>
                 </div>
               </div>
 
@@ -187,7 +187,7 @@ const CartDrawer = () => {
               </div>
 
               <p className="text-xs text-muted-foreground text-center mt-4">
-                Free shipping on orders over PKR 15,000
+                Free shipping on orders over {formatPrice(FREE_SHIPPING_THRESHOLD)}
               </p>
             </div>
           </>

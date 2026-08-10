@@ -14,5 +14,11 @@
       "memory": 1769,
       "maxDuration": 30
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/payments/sweep",
+      "schedule": "*/15 * * * *"
+    }
+  ]
 }

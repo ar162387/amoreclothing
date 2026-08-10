@@ -1,14 +1,21 @@
 import type { VercelRequest } from '@vercel/node';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
-import { planPaymentTransition, type TransitionInput } from '../../src/shared/paymentTransitions';
-import type { PaymentStatus } from '../../src/shared/orderStatus';
-import { SAFEPAY_HOSTS, type SafepayEnv } from '../../src/shared/safepay';
+import { planPaymentTransition, type TransitionInput } from '../src/shared/paymentTransitions';
+import type { PaymentStatus } from '../src/shared/orderStatus';
+import { SAFEPAY_HOSTS, type SafepayEnv } from '../src/shared/safepay';
 
 /**
- * Shared server-side helpers for the payment API routes. Named with a leading underscore
- * directory (api/_lib/) so Vercel does NOT expose it as a route — same trick as api/sitemap.ts's
- * sibling files, just formalized into its own folder now that there's real shared logic.
+ * Shared server-side helpers for the payment API routes.
+ *
+ * Lives OUTSIDE api/ entirely (not api/_lib/) — a leading-underscore directory under api/ looks
+ * like the standard "exclude this from routing" trick, but on Vercel it also excludes the file
+ * from the deployed function bundle outright: every api/*.ts that imported '../_lib/server'
+ * 500'd in production with `ERR_MODULE_NOT_FOUND`, even though the exact same relative-import-
+ * from-outside-api/ pattern (`../../src/shared/*`) works fine. Mirrors how src/shared/* already
+ * works for code shared with the client — this is that same pattern for code that's server-only
+ * (uses node:crypto, a service-role Supabase client) and therefore must NOT live under src/,
+ * which tsconfig.app.json (the browser/Vite build) type-checks with browser lib types only.
  *
  * Same `process.env` / relative-import conventions as the existing api/*.ts files (see
  * api/sitemap.ts, api/prerender.ts) — `@/` does not resolve here.

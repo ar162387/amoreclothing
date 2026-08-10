@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
-import { serviceClient, siteOrigin, safepayConfig } from '../_lib/server';
+import { serviceClient, siteOrigin, safepayConfig } from '../../server/paymentApi';
 import { calcTotals, toMinorUnits } from '../../src/shared/pricing';
 
 /**

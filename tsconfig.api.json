@@ -23,5 +23,5 @@
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["api", "middleware.ts"]
+  "include": ["api", "server", "middleware.ts"]
 }

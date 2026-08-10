@@ -1,6 +1,6 @@
 /**
  * Safepay provider constants — endpoints, event types, tracker states. No secrets live here
- * (those are process.env-only, read in api/_lib/server.ts). See src/shared/pricing.ts for the
+ * (those are process.env-only, read in server/paymentApi.ts). See src/shared/pricing.ts for the
  * import rules that apply to every file in this directory.
  */
 

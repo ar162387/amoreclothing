@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { serviceClient, safepayConfig, applyTransition } from '../_lib/server';
+import { serviceClient, safepayConfig, applyTransition } from '../../server/paymentApi';
 
 /**
  * Called from the /order/cancelled/:token page. Never trusts the browser's word alone that a

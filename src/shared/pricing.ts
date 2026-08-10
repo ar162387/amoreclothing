@@ -1,6 +1,6 @@
 /**
  * Pure pricing/shipping math shared by the client (Checkout.tsx, CartDrawer.tsx) and the
- * server (api/orders/create.ts, api/_lib/server.ts).
+ * server (api/orders/create.ts, server/paymentApi.ts).
  *
  * Hard rule for every file in src/shared/: no `@/` VALUE imports (type-only `@/` imports are
  * fine — esbuild erases them before resolution, see src/lib/seo.ts), no `import.meta.env`, no

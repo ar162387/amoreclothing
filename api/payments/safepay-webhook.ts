@@ -1,11 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { serviceClient, safepayConfig, readRawBody, verifySafepaySignature, sha256Hex, applyTransition } from '../_lib/server';
+import { serviceClient, safepayConfig, readRawBody, verifySafepaySignature, sha256Hex, applyTransition } from '../../server/paymentApi';
 import { SAFEPAY_WEBHOOK_VERSION } from '../../src/shared/safepay';
 import { toMinorUnits } from '../../src/shared/pricing';
 import type { PaymentStatus } from '../../src/shared/orderStatus';
 
 /**
- * Safepay webhook receiver. See api/_lib/server.ts's readRawBody() doc comment for the raw-body
+ * Safepay webhook receiver. See server/paymentApi.ts's readRawBody() doc comment for the raw-body
  * reconstruction problem this works around — TODO once sandbox testing confirms which candidate
  * (`rawBody` vs `reserialized-body`) actually matches Safepay's signature: delete the other
  * candidate and this comment.

@@ -1,4 +1,4 @@
-import type { FulfillmentStatus, PaymentStatus } from "@/shared/orderStatus";
+import type { FulfillmentStatus, PaymentStatus } from "@/shared/orderStatus.js";
 
 /**
  * Tailwind badge classes for order statuses. Client-only (unlike src/shared/*, this may use the

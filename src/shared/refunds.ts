@@ -1,5 +1,5 @@
-import type { PaymentMethod, PaymentStatus } from "./orderStatus";
-import { SAFEPAY_DASHBOARD_HOSTS, type SafepayEnv } from "./safepay";
+import type { PaymentMethod, PaymentStatus } from "./orderStatus.js";
+import { SAFEPAY_DASHBOARD_HOSTS, type SafepayEnv } from "./safepay.js";
 
 /**
  * The refund adapter. Safepay's only publicly documented refund mechanism today is the

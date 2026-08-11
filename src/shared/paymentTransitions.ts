@@ -1,4 +1,4 @@
-import type { PaymentStatus } from "./orderStatus";
+import type { PaymentStatus } from "./orderStatus.js";
 
 /**
  * Monotonic payment-status state machine, shared by api/payments/safepay-webhook.ts and the

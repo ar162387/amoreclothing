@@ -1,5 +1,5 @@
-import type { Product } from "@/services/products";
-import type { ContactInfo } from "@/services/siteContent";
+import type { Product } from "../services/products.js";
+import type { ContactInfo } from "../services/siteContent.js";
 
 /**
  * Pure data/logic only — no bundler-specific imports (no `@/assets/*.jpg`

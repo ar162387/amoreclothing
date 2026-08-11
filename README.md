@@ -32,6 +32,11 @@ Amore is a React application built with Vite, Tailwind CSS, and shadcn-ui.
    npm run dev
    ```
 
+## Documentation
+
+- [Payments (Safepay) — architecture, gotchas, how to work on this](docs/PAYMENTS.md). Read this
+  before touching `api/orders/`, `api/payments/`, `server/`, or `src/shared/*`.
+
 ## Technologies
 
 - [Vite](https://vitejs.dev/)

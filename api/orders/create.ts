@@ -263,14 +263,24 @@ async function respondForExistingOrder(
   supabase: ReturnType<typeof serviceClient>,
   order: ExistingOrderRow
 ) {
-  if (order.payment_method === 'cash' || order.payment_status === 'paid') {
+  // Terminal / already-resolved states must never re-attempt a payment session, even if a stale
+  // idempotencyKey somehow comes back around (e.g. a customer with an old checkout tab/marker
+  // still in localStorage after a refund). Send them straight to the (now-accurate) status page.
+  const RESOLVED: string[] = ['paid', 'refunded', 'partially_refunded'];
+  if (order.payment_method === 'cash' || RESOLVED.includes(order.payment_status)) {
     return { orderId: order.id, publicToken: order.public_token, redirectTo: `/order/confirmation/${order.public_token}` };
   }
 
   // Card order still awaiting payment WITH a tracker — re-mint a fresh client token and rebuild
   // the checkout URL from that stored tracker. Never cache/replay a checkout URL: the `tbt`
   // token expires after 1 hour, so a stale cached URL would 401 on the customer.
-  if (order.safepay_tracker && order.safepay_environment) {
+  //
+  // Deliberately gated on payment_status === 'awaiting_payment', NOT just "has a tracker": a
+  // tracker attached to a failed/cancelled/expired order has already been ENDED by that event
+  // (Safepay trackers are one-attempt). Reusing it here would silently send a retrying customer
+  // to a dead checkout session instead of a fresh card form. Those statuses fall through to the
+  // full-session-retry branch below, which mints a brand-new tracker.
+  if (order.payment_status === 'awaiting_payment' && order.safepay_tracker && order.safepay_environment) {
     const config = safepayConfig();
     const tbt = await mintClientToken(config);
     if (tbt) {

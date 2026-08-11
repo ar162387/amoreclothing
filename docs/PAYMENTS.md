@@ -304,6 +304,33 @@ check `payment_events` for that `order_id` — there will be an `internal.sessio
 the real Safepay error in `payload.error` (this is how bugs #5 and #6 above were actually
 diagnosed, not from the generic client-facing 502).
 
+### 8. Money amounts off by 100x in the admin panel
+
+A completed sandbox refund surfaced this: the admin's Payment section showed `amount_paid`,
+`payment_fee`, `payment_net`, and `refunded_amount` all with what looked like three extra zeros —
+e.g. `Rs. 1,225,000` for an order whose `total` was `Rs. 12,250`. Exactly ×100.
+
+Root cause: Safepay's webhook payload reports `amount`/`fee`/`net`/`balance`/`refund_amount` in
+the same lowest-denomination (paisa) convention documented for session creation and confirmed
+against the live checkout page (see bug #6 — we sent `1225000` and it rendered `Rs.12,250.00`).
+`planPaymentTransition()` (`src/shared/paymentTransitions.ts`) was writing these fields straight
+from the webhook payload into `orders.amount_paid` / `payment_fee` / `payment_net` /
+`refunded_amount` with **no conversion**, while every other money column on that table
+(`subtotal`, `shipping`, `total`) is whole PKR. The admin UI just displayed the raw paisa integer
+as if it were already rupees.
+
+Fixed with a `numMinor()` wrapper (`fromMinorUnits()` from `src/shared/pricing.ts`) applied at the
+single point each of these five fields enters the system, inside `planPaymentTransition()`. If
+you ever add a new field read from a Safepay webhook or API response that represents a monetary
+amount, **assume it's in paisa and convert it at the point of ingestion** — do not store raw
+Safepay amounts anywhere in `orders` and convert at display time; every money column in this
+table is a whole-PKR contract, and mixing units silently is exactly how this bug happened.
+
+One order that already went through a full paid → refunded cycle during earlier testing had to be
+corrected by hand (divide `amount_paid`/`payment_fee`/`payment_net`/`refunded_amount` by 100) —
+if this bug resurfaces after being reintroduced, check for any `orders` rows where `amount_paid`
+is roughly 100× `total` and correct them the same way.
+
 ---
 
 ## How to actually test this locally / in sandbox

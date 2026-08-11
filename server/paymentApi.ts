@@ -3,7 +3,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import crypto from 'node:crypto';
 import { planPaymentTransition, type TransitionInput } from '../src/shared/paymentTransitions.js';
 import type { PaymentStatus } from '../src/shared/orderStatus.js';
-import { SAFEPAY_HOSTS, type SafepayEnv } from '../src/shared/safepay.js';
+import { SAFEPAY_HOSTS, SAFEPAY_CHECKOUT_HOSTS, type SafepayEnv } from '../src/shared/safepay.js';
 
 /**
  * Shared server-side helpers for the payment API routes.
@@ -62,7 +62,7 @@ export interface SafepayConfig {
 export function safepayConfig(): SafepayConfig {
   const environment = (process.env.SAFEPAY_ENVIRONMENT === 'production' ? 'production' : 'sandbox') as SafepayEnv;
   const apiHost = process.env.SAFEPAY_API_HOST ?? SAFEPAY_HOSTS[environment];
-  const checkoutHost = process.env.SAFEPAY_CHECKOUT_HOST ?? `${apiHost}/checkout/pay`;
+  const checkoutHost = process.env.SAFEPAY_CHECKOUT_HOST ?? SAFEPAY_CHECKOUT_HOSTS[environment];
   const merchantApiKey = process.env.SAFEPAY_MERCHANT_API_KEY;
   const secretKey = process.env.SAFEPAY_SECRET_KEY;
   if (!merchantApiKey || !secretKey) {

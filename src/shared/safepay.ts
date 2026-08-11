@@ -11,6 +11,18 @@ export const SAFEPAY_HOSTS = {
 
 export type SafepayEnv = keyof typeof SAFEPAY_HOSTS;
 
+/** The hosted-checkout base URL — ground truth taken directly from @sfpy/node-core's own
+ * createCheckoutUrl() source (node_modules/@sfpy/node-core/esm/Checkout.js), since this is
+ * nowhere in Safepay's public docs. Deliberately NOT derived from SAFEPAY_HOSTS above:
+ * production checkout lives on a completely different domain (getsafepay.com, no `api.`
+ * subdomain) than the production API host, and sandbox's is `/embedded/`, not `/checkout/pay`
+ * (a guess that shipped once and 500'd every real checkout attempt with "Required environment
+ * is missing" — the checkout page rejects an unrecognized path outright). */
+export const SAFEPAY_CHECKOUT_HOSTS = {
+  sandbox: "https://sandbox.api.getsafepay.com/embedded/",
+  production: "https://getsafepay.com/embedded/",
+} as const;
+
 /** Safepay sandbox dashboard, used to build the per-transaction refund deep link. Confirm the
  * exact transaction-detail URL shape during sandbox recon (plan Step 0) and update
  * getRefundTarget() in src/shared/refunds.ts accordingly — this constant is the fallback. */

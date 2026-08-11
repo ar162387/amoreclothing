@@ -363,7 +363,12 @@ async function createSafepaySession(args: {
         mode: 'payment',
         currency: 'PKR',
         amount: amountMinor,
-        metadata: { order_id: args.orderId, public_token: args.publicToken, source: 'amore-web' },
+        // Safepay validates metadata keys against an allowlist server-side — `public_token` and
+        // `source` were both rejected with "unsupported meta key" (confirmed against the live
+        // sandbox API; the exact allowlist isn't documented). order_id is the only key the
+        // webhook handler actually reads (see extractTracker's metadata fallback in
+        // api/payments/safepay-webhook.ts), so it's also the only one worth risking.
+        metadata: { order_id: args.orderId },
       }),
     });
 

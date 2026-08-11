@@ -331,6 +331,28 @@ corrected by hand (divide `amount_paid`/`payment_fee`/`payment_net`/`refunded_am
 if this bug resurfaces after being reintroduced, check for any `orders` rows where `amount_paid`
 is roughly 100× `total` and correct them the same way.
 
+### 9. Retrying after a decline reused a dead Safepay tracker
+
+Not caught by testing — found by re-reading `respondForExistingOrder()` (`api/orders/create.ts`)
+while investigating what happens to abandoned checkouts. Its tracker-reuse branch checked only
+`order.safepay_tracker && order.safepay_environment` — not the order's current `payment_status`.
+Safepay trackers are **one-attempt**: a `payment.failed`/`void.succeeded`/refund event *ends* the
+tracker it belongs to. So a customer whose card was declined, clicking "Try Again" (same
+`idempotencyKey`, order now `failed` but still carrying its original tracker), would have been
+handed a rebuilt checkout URL pointing at that already-ended tracker instead of a fresh session —
+likely a dead/expired page on Safepay's side rather than a working retry. Same issue for
+`cancelled`/`expired` retries. Separately, `refunded`/`partially_refunded` orders weren't excluded
+either, so a stale idempotency key could in theory attempt to open a brand-new payment session on
+an order that had already been refunded.
+
+Fixed: the tracker-reuse branch now requires `payment_status === 'awaiting_payment'` — every other
+non-terminal status (`failed`/`cancelled`/`expired`) falls through to full session creation instead
+(same code path bug #7 fixed), minting a genuinely new tracker. And `paid`/`refunded`/
+`partially_refunded` are now explicitly routed straight to the status page rather than falling
+through to any session-creation branch at all. **The lesson**: a Safepay tracker's validity is tied
+to the order's payment_status, not just its presence — never key retry logic off "does a tracker
+exist" alone.
+
 ---
 
 ## How to actually test this locally / in sandbox

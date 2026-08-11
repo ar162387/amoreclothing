@@ -1,4 +1,5 @@
 import type { PaymentStatus } from "./orderStatus.js";
+import { fromMinorUnits } from "./pricing.js";
 
 /**
  * Monotonic payment-status state machine, shared by api/payments/safepay-webhook.ts and the
@@ -55,6 +56,17 @@ function num(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Every money field Safepay sends us — `amount`, `fee`, `net`, `balance`, `refund_amount` — is
+ * in the same lowest-denomination (paisa) convention documented for session creation (confirmed
+ * against the live sandbox checkout page: we sent 1225000 and it rendered "Rs.12,250.00"). Our
+ * `orders` table stores every money column in whole PKR, matching subtotal/shipping/total, so
+ * every incoming Safepay amount must be converted at this boundary — nowhere else. Getting this
+ * wrong looks exactly like what shipped once already: amount_paid off by 100x in the admin UI. */
+function numMinor(value: unknown): number | null {
+  const n = num(value);
+  return n === null ? null : fromMinorUnits(n);
+}
+
 function str(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
@@ -73,11 +85,11 @@ export function planPaymentTransition(input: TransitionInput): TransitionResult 
         payment_status: "paid",
         charged_at: str(data.charged_at) ?? new Date().toISOString(),
       };
-      const amount = num(data.amount);
+      const amount = numMinor(data.amount);
       if (amount !== null) patch.amount_paid = amount;
-      const fee = num(data.fee);
+      const fee = numMinor(data.fee);
       if (fee !== null) patch.payment_fee = fee;
-      const net = num(data.net);
+      const net = numMinor(data.net);
       if (net !== null) patch.payment_net = net;
       const paymentMethod = data.payment_method as { card_type?: unknown; last_four?: unknown } | undefined;
       if (paymentMethod && typeof paymentMethod === "object") {
@@ -111,8 +123,8 @@ export function planPaymentTransition(input: TransitionInput): TransitionResult 
         return { patch: null, allowedFrom: [], note: "not in a refundable state" };
       }
       const amountPaid = input.amountPaidExisting ?? 0;
-      const balance = num(data.balance);
-      const refundAmount = num(data.refund_amount);
+      const balance = numMinor(data.balance);
+      const refundAmount = numMinor(data.refund_amount);
       // Prefer `balance` (absolute remaining amount) when present — it's correct across
       // multiple sequential partial refunds regardless of whether refund_amount is incremental
       // or cumulative. Fall back to accumulating refund_amount onto what was already refunded,

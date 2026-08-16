@@ -78,6 +78,7 @@ export interface OrderStatusResponse {
   paymentMethod: 'cash' | 'card';
   paymentStatus: string;
   fulfillmentStatus: string;
+  createdAt: string;
   subtotal: number;
   shipping: number;
   total: number;

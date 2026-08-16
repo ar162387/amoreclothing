@@ -76,6 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       paymentMethod: order.payment_method,
       paymentStatus,
       fulfillmentStatus: order.status,
+      createdAt: order.created_at,
       subtotal: Number(order.subtotal),
       shipping: Number(order.shipping),
       total: Number(order.total),

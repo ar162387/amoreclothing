@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, ShoppingBag, Search } from 'lucide-react';
 import { useCartTotalItems, useCartStore } from '@/store/cartStore';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { productsService, Product } from '@/services/products';
 import { formatPrice } from '@/data/store';
 import { getOptimizedImageUrl } from '@/lib/productImage';
@@ -117,6 +117,8 @@ const Header = ({ hasHero = false, staticHeader = false }: HeaderProps) => {
               <Menu className="h-5 w-5" />
             </SheetTrigger>
             <SheetContent side="left" className="w-80 bg-background">
+              <SheetTitle className="sr-only">Menu</SheetTitle>
+              <SheetDescription className="sr-only">Site navigation links.</SheetDescription>
               <nav className="flex flex-col gap-8 mt-12">
                 {navLinks.map((link) => (
                   <Link

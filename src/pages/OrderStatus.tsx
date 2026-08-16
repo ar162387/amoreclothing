@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getOrderStatus, cancelOrder, type OrderStatusResponse } from '@/services/checkout';
-import { formatPrice } from '@/data/store';
 import { useCartStore } from '@/store/cartStore';
 import { Loader2 } from 'lucide-react';
+import OrderReceipt from '@/components/OrderReceipt';
 
 const PENDING_ORDER_KEY = 'amore-pending-order';
 const POLL_INTERVAL_MS = 2000;
@@ -115,37 +115,8 @@ const OrderStatus = ({ mode }: OrderStatusProps) => {
     );
   }
 
-  if (status.paymentStatus === 'paid') {
-    return (
-      <StatusShell>
-        <h1 className="font-serif text-2xl font-light mb-3">Payment successful</h1>
-        <p className="text-sm text-muted-foreground mb-2">
-          Thank you, {status.firstName}. Order #{orderNumber} is confirmed.
-        </p>
-        {status.cardBrand && status.cardLast4 && (
-          <p className="text-sm text-muted-foreground mb-2">
-            {status.cardBrand} •••• {status.cardLast4}
-          </p>
-        )}
-        {status.amountPaid !== null && (
-          <p className="text-sm font-medium mb-8">{formatPrice(status.amountPaid)}</p>
-        )}
-        <ActionLink onClick={() => navigate('/')}>Continue Shopping</ActionLink>
-      </StatusShell>
-    );
-  }
-
-  if (status.paymentStatus === 'on_delivery') {
-    return (
-      <StatusShell>
-        <h1 className="font-serif text-2xl font-light mb-3">Order placed</h1>
-        <p className="text-sm text-muted-foreground mb-2">
-          Thank you, {status.firstName}. Order #{orderNumber} is confirmed.
-        </p>
-        <p className="text-sm font-medium mb-8">Pay {formatPrice(status.total)} on delivery.</p>
-        <ActionLink onClick={() => navigate('/')}>Continue Shopping</ActionLink>
-      </StatusShell>
-    );
+  if (status.paymentStatus === 'paid' || status.paymentStatus === 'on_delivery') {
+    return <OrderReceipt status={status} onContinue={() => navigate('/')} />;
   }
 
   if (status.paymentStatus === 'failed') {
@@ -171,16 +142,7 @@ const OrderStatus = ({ mode }: OrderStatusProps) => {
   }
 
   if (status.paymentStatus === 'refunded' || status.paymentStatus === 'partially_refunded') {
-    return (
-      <StatusShell>
-        <h1 className="font-serif text-2xl font-light mb-3">
-          {status.paymentStatus === 'refunded' ? 'Order refunded' : 'Order partially refunded'}
-        </h1>
-        <p className="text-sm text-muted-foreground mb-2">Order #{orderNumber}</p>
-        <p className="text-sm font-medium mb-8">{formatPrice(status.refundedAmount)} refunded</p>
-        <ActionLink onClick={() => navigate('/')}>Return Home</ActionLink>
-      </StatusShell>
-    );
+    return <OrderReceipt status={status} onContinue={() => navigate('/')} />;
   }
 
   return null;

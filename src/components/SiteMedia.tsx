@@ -17,7 +17,16 @@ interface SiteMediaProps {
 
 const SiteMedia = ({ media, className, alt, priority = false, active = true }: SiteMediaProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
+
+  useEffect(() => {
+    // Set imperatively rather than via the JSX `fetchPriority` prop: @types/react already
+    // declares it (matching a future React version) but React 18's runtime doesn't recognize
+    // the camelCase prop yet, so passing it in JSX just warns and never reaches the DOM. The
+    // browser only reads the lowercase `fetchpriority` attribute anyway.
+    imgRef.current?.setAttribute('fetchpriority', priority ? 'high' : 'auto');
+  }, [priority]);
 
   useEffect(() => {
     const mql = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -74,11 +83,11 @@ const SiteMedia = ({ media, className, alt, priority = false, active = true }: S
   return (
     <img
       key={imageSrc}
+      ref={imgRef}
       src={imageSrc}
       alt={alt ?? media.alt ?? ''}
       className={className}
       loading={priority ? 'eager' : 'lazy'}
-      fetchPriority={priority ? 'high' : 'auto'}
     />
   );
 };

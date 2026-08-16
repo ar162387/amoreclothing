@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Minus, ShoppingBag, X } from 'lucide-react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useCartStore, getCartTotals } from '@/store/cartStore';
 import { formatPrice } from '@/data/store';
 import { calcShipping, FREE_SHIPPING_THRESHOLD } from '@/shared/pricing';
@@ -37,6 +37,9 @@ const CartDrawer = () => {
       <SheetContent side="right" className="w-full sm:w-[400px] p-0 flex flex-col">
         <SheetHeader className="px-6 py-4 border-b">
           <SheetTitle className="font-serif text-2xl font-light">Shopping Bag</SheetTitle>
+          <SheetDescription className="sr-only">
+            Review the items in your shopping bag and proceed to checkout.
+          </SheetDescription>
           {totalItems > 0 && (
             <p className="text-sm text-muted-foreground">{totalItems} {totalItems === 1 ? 'item' : 'items'}</p>
           )}

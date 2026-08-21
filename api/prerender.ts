@@ -11,7 +11,6 @@ import {
   buildProductJsonLd,
 } from '../src/lib/seo.js';
 import type { ContactInfo } from '../src/services/siteContent.js';
-import { sizeGuide } from '../src/data/store.js';
 
 /**
  * Serves real, crawlable HTML to bots that don't execute JavaScript (GPTBot, ClaudeBot,
@@ -162,65 +161,6 @@ ${product.collections?.name ? `<p>Collection: ${escapeHtml(product.collections.n
           .map((src, i) => `<img src="${escapeHtml(src)}" alt="${escapeHtml(product.name)} - view ${i + 1}" />`)
           .join('\n')}
 <p><a href="/">View the full collection at ${escapeHtml(SITE_NAME)}</a></p>`,
-      }),
-    );
-    return;
-  }
-
-  // --- Collections page --------------------------------------------------
-  if (path === '/collections') {
-    const { data: products } = supabase
-      ? await supabase.from('products').select('id, name, price').eq('available', true)
-      : { data: null };
-
-    sendHtml(
-      res,
-      200,
-      renderPage({
-        title: `Shop the Collection | ${SITE_NAME}`,
-        description: `Shop the full ${SITE_NAME} collection — timeless pieces crafted for the modern woman, made in Pakistan.`,
-        canonicalPath: '/collections',
-        jsonLd: [],
-        bodyHtml: `
-<h1>Shop the Collection</h1>
-<p>Timeless pieces crafted for the modern woman. Our debut collection celebrates understated luxury and effortless elegance.</p>
-<ul>
-${(products ?? [])
-  .map(
-    (p) =>
-      `<li><a href="/product/${p.id}">${escapeHtml(p.name)}</a> — PKR ${Number(p.price).toLocaleString()}</li>`,
-  )
-  .join('\n')}
-</ul>`,
-      }),
-    );
-    return;
-  }
-
-  // --- Size guide page -----------------------------------------------------
-  if (path === '/size-guide') {
-    sendHtml(
-      res,
-      200,
-      renderPage({
-        title: `Size Guide | ${SITE_NAME}`,
-        description: `Find your perfect fit with the ${SITE_NAME} size chart and measuring guide.`,
-        canonicalPath: '/size-guide',
-        jsonLd: [],
-        bodyHtml: `
-<h1>Size Guide</h1>
-<p>Find your perfect fit with our comprehensive size chart.</p>
-<table>
-<thead><tr><th>Size</th><th>Bust</th><th>Waist</th><th>Hip</th></tr></thead>
-<tbody>
-${sizeGuide.measurements
-  .map((row) => `<tr><td>${row.size}</td><td>${row.bust}</td><td>${row.waist}</td><td>${row.hip}</td></tr>`)
-  .join('\n')}
-</tbody>
-</table>
-<ul>
-${sizeGuide.tips.map((tip) => `<li>${escapeHtml(tip)}</li>`).join('\n')}
-</ul>`,
       }),
     );
     return;

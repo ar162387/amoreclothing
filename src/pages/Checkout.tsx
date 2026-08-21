@@ -178,7 +178,7 @@ const Checkout = () => {
         <div className="container mx-auto px-6 py-20 text-center">
           <h1 className="text-2xl font-light mb-4">Your cart is empty</h1>
           <button
-            onClick={() => navigate('/collections')}
+            onClick={() => navigate('/')}
             className="text-sm underline"
           >
             Continue Shopping

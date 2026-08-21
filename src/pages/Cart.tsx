@@ -55,7 +55,7 @@ const Cart = () => {
             Discover our collection and add your favorite pieces.
           </p>
           <Link
-            to="/collections"
+            to="/"
             className="inline-flex items-center gap-2 px-8 py-4 bg-foreground text-background text-sm tracking-widest uppercase hover:opacity-90 transition-opacity"
           >
             Shop Collection

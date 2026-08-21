@@ -4,8 +4,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 /**
  * Product-page size guide: separate measurement tables for the shirt and the skirt/trouser half
- * of a set, since a single "Bust/Waist/Hip" table (see SizeGuide.tsx, the general /size-guide
- * page) doesn't cover a two-piece garment. Values match the client-supplied reference charts.
+ * of a set, since a single "Bust/Waist/Hip" table doesn't cover a two-piece garment. Values match
+ * the client-supplied reference charts. This dialog is the only size-guide surface left on the
+ * site — the standalone /size-guide page was removed.
  */
 
 type Garment = 'shirt' | 'bottom';

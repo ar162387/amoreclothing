@@ -7,6 +7,7 @@ import { calcShipping, FREE_SHIPPING_THRESHOLD } from '@/shared/pricing';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getOptimizedImageUrl } from '@/lib/productImage';
+import { buildWhatsAppCheckoutUrl } from '@/lib/whatsappCheckout';
 
 const CartDrawer = () => {
   const navigate = useNavigate();
@@ -15,20 +16,7 @@ const CartDrawer = () => {
   const shippingCost = calcShipping(totalPrice);
 
   const handleCheckout = () => {
-    const message = items
-      .map(
-        (item) =>
-          `${item.product.name} (Size: ${item.size}) x${item.quantity} - ${formatPrice(
-            Number(item.product.price) * item.quantity
-          )}`
-      )
-      .join('\n');
-    
-    const fullMessage = encodeURIComponent(
-      `Hello! I would like to place an order:\n\n${message}\n\nTotal: ${formatPrice(totalPrice)}`
-    );
-    
-    window.open(`https://wa.me/923001056929?text=${fullMessage}`, '_blank');
+    window.open(buildWhatsAppCheckoutUrl(items, totalPrice), '_blank');
     toast.success('Redirecting to WhatsApp...');
   };
 

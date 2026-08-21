@@ -9,10 +9,11 @@ import ProductFullscreenViewer from '@/components/ProductFullscreenViewer';
 import MobileAddToBagBar from '@/components/MobileAddToBagBar';
 import SizeGuideDialog from '@/components/SizeGuideDialog';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
-import { useCartStore } from '@/store/cartStore';
+import { useCartStore, getCartTotals } from '@/store/cartStore';
 import { useSeo } from '@/hooks/use-seo';
 import { absoluteUrl, buildProductJsonLd, SITE_NAME, SITE_TITLE, SITE_DESCRIPTION } from '@/lib/seo';
 import { getOptimizedImageUrl, buildSrcSet } from '@/lib/productImage';
+import { buildWhatsAppCheckoutUrl } from '@/lib/whatsappCheckout';
 
 const GALLERY_WIDTHS = [480, 640, 828, 1080, 1280, 1600];
 const GALLERY_SIZES = '(min-width: 1024px) 50vw, 100vw';
@@ -59,8 +60,12 @@ const ProductDetail = () => {
         console.error(error);
       } else {
         setProduct(data);
-        // No auto-selected size — an explicit choice is required (inline or via the mobile sticky
-        // bar), so "Add to Bag" never silently uses a size the user never actually picked.
+        // Default to whatever's already in the bag for this product (so re-opening the page
+        // reflects the real cart state, not a blank picker), otherwise the first available size —
+        // this must never leave the picker unselected, since that's what caused the confusion of
+        // "Add to Bag" silently requiring a size nobody had visibly chosen.
+        const existingCartItem = useCartStore.getState().items.find((item) => item.product.id === data?.id);
+        setSelectedSize(existingCartItem?.size ?? data?.sizes?.[0] ?? '');
       }
       setLoading(false);
     };
@@ -140,6 +145,14 @@ const ProductDetail = () => {
   };
 
   const handleAddToCart = () => addToCartWithSize(selectedSize);
+
+  // Same behavior as CartDrawer's "Checkout via WhatsApp" — whatever's currently in the bag,
+  // not just this product (see buildWhatsAppCheckoutUrl's doc comment).
+  const handleWhatsAppCheckout = () => {
+    const { totalPrice } = getCartTotals(cartItems);
+    window.open(buildWhatsAppCheckoutUrl(cartItems, totalPrice), '_blank');
+    toast.success('Redirecting to WhatsApp...');
+  };
 
   // +/- updates the live cart quantity directly once this product+size is already in the bag, instead
   // of a separate "how many to add next" number — a single quantity, synced at the store level.
@@ -279,7 +292,16 @@ const ProductDetail = () => {
                 Shipping, Exchange & Return
               </Link>
             </p>
-            <p>• WhatsApp support: +92 300 1056929</p>
+            <p>
+              •{' '}
+              <button
+                type="button"
+                onClick={handleWhatsAppCheckout}
+                className="underline hover:text-foreground transition-colors"
+              >
+                Checkout via WhatsApp
+              </button>
+            </p>
           </div>
         </div>
 
@@ -421,7 +443,16 @@ const ProductDetail = () => {
                   Shipping, Exchange & Return
                 </Link>
               </p>
-              <p>• WhatsApp support: +92 300 1056929</p>
+              <p>
+              •{' '}
+              <button
+                type="button"
+                onClick={handleWhatsAppCheckout}
+                className="underline hover:text-foreground transition-colors"
+              >
+                Checkout via WhatsApp
+              </button>
+            </p>
             </div>
           </div>
         </div>

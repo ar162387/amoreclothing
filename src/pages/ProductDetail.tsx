@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronLeft, Plus, Minus, ChevronRight } from 'lucide-react';
 import Layout from '@/components/layout/Layout';
@@ -9,6 +9,7 @@ import ProductFullscreenViewer from '@/components/ProductFullscreenViewer';
 import MobileAddToBagBar from '@/components/MobileAddToBagBar';
 import SizeGuideDialog from '@/components/SizeGuideDialog';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
+import Autoplay from 'embla-carousel-autoplay';
 import { useCartStore, getCartTotals } from '@/store/cartStore';
 import { useSeo } from '@/hooks/use-seo';
 import { absoluteUrl, buildProductJsonLd, SITE_NAME, SITE_TITLE, SITE_DESCRIPTION } from '@/lib/seo';
@@ -28,6 +29,10 @@ const ProductDetail = () => {
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [mobileGalleryApi, setMobileGalleryApi] = useState<CarouselApi>();
   const [mobileGalleryIndex, setMobileGalleryIndex] = useState(0);
+  // Advances every 2.5s; a manual swipe/drag resets the countdown instead of just pausing it
+  // (stopOnInteraction: false — the plugin restarts its own timer after each interaction), and
+  // the ref keeps this one plugin instance stable across re-renders instead of recreating it.
+  const mobileGalleryAutoplay = useRef(Autoplay({ delay: 2500, stopOnInteraction: false }));
   const { items: cartItems, addItem, updateQuantity, openCart } = useCartStore();
 
   useEffect(() => {
@@ -182,7 +187,12 @@ const ProductDetail = () => {
         </Link>
 
         {hasImages ? (
-          <Carousel opts={{ align: 'start' }} setApi={setMobileGalleryApi} className="w-full">
+          <Carousel
+            opts={{ align: 'start', loop: true }}
+            plugins={[mobileGalleryAutoplay.current]}
+            setApi={setMobileGalleryApi}
+            className="w-full"
+          >
             <CarouselContent className="ml-0">
               {images.map((imageUrl, index) => (
                 <CarouselItem key={index} className="pl-0">
@@ -196,7 +206,12 @@ const ProductDetail = () => {
                       srcSet={buildSrcSet(imageUrl, GALLERY_WIDTHS)}
                       sizes={GALLERY_SIZES}
                       alt={`${product.name} - View ${index + 1}`}
-                      fetchPriority={index === 0 ? 'high' : undefined}
+                      // Set imperatively, not via a JSX `fetchPriority` prop — @types/react
+                      // already declares it (matching a future React version) but React 18's
+                      // runtime doesn't recognize the camelCase prop yet, so passing it in JSX
+                      // just warns and never reaches the DOM (see SiteMedia.tsx for the same
+                      // pattern). The browser only reads the lowercase `fetchpriority` attribute.
+                      ref={(el) => el?.setAttribute('fetchpriority', index === 0 ? 'high' : 'auto')}
                       loading={index === 0 ? undefined : 'lazy'}
                       decoding="async"
                       className="w-full h-full object-cover"
@@ -345,7 +360,8 @@ const ProductDetail = () => {
                     srcSet={buildSrcSet(imageUrl, GALLERY_WIDTHS)}
                     sizes={GALLERY_SIZES}
                     alt={`${product.name} - View ${index + 1}`}
-                    fetchPriority={index === 0 ? 'high' : undefined}
+                    // See the mobile gallery's <img> above for why this is imperative, not JSX.
+                    ref={(el) => el?.setAttribute('fetchpriority', index === 0 ? 'high' : 'auto')}
                     loading={index === 0 ? undefined : 'lazy'}
                     decoding="async"
                     className="w-full h-full object-cover"

@@ -51,7 +51,11 @@ const Collections = () => {
           <img
             src={collectionsHero}
             alt="RAR Studio Collections"
-            fetchPriority="high"
+            // Set imperatively, not via a JSX `fetchPriority` prop — React 18's runtime doesn't
+            // recognize the camelCase prop, so passing it in JSX just warns and never reaches the
+            // DOM (see SiteMedia.tsx for the same pattern). The browser only reads the lowercase
+            // `fetchpriority` attribute.
+            ref={(el) => el?.setAttribute('fetchpriority', 'high')}
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-foreground/30" />

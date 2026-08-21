@@ -88,7 +88,7 @@ export default {
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
   			'accordion-up': 'accordion-up 0.2s ease-out',
-			marquee: 'marquee 18s linear infinite'
+			marquee: 'marquee 30s linear infinite'
   		},
   		boxShadow: {
   			'2xs': 'var(--shadow-2xs)',

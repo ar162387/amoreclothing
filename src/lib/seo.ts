@@ -28,13 +28,42 @@ export function absoluteUrl(path: string): string {
  * results. Google requires it be square-ish and under 5MB; this is ~512x512 and well under that. */
 export const SITE_LOGO_URL = absoluteUrl("/favicon-512.png");
 
+/** Loosely parses a free-text "City, Country" location string (e.g. "Rawalpindi, Pakistan.") into
+ * a schema.org PostalAddress. Tolerant of a missing/odd format — worst case, everything lands in
+ * addressLocality rather than producing no address at all. */
+function buildPostalAddress(location: string | undefined) {
+  if (!location) return undefined;
+  const parts = location
+    .split(",")
+    .map((p) => p.trim().replace(/\.$/, ""))
+    .filter(Boolean);
+  if (parts.length === 0) return undefined;
+
+  const country = parts.length > 1 ? parts[parts.length - 1] : undefined;
+  const locality = parts.length > 1 ? parts.slice(0, -1).join(", ") : parts[0];
+
+  return {
+    "@type": "PostalAddress",
+    addressLocality: locality,
+    ...(country ? { addressCountry: country } : {}),
+  };
+}
+
+/**
+ * "ClothingStore" (a schema.org LocalBusiness subtype) rather than the generic "Organization" —
+ * more precise categorization for Google, and it's what carries a physical address. This is also
+ * a real, concrete disambiguation signal against the two unrelated "RAR Studio"s that already
+ * outrank this brand-new domain for the bare name: a Lisbon architecture practice and an Indian
+ * apparel label — neither of which is a clothing store *in Pakistan* with this address.
+ */
 export function buildOrganizationJsonLd(info?: Partial<ContactInfo>) {
   const sameAs: string[] = [];
   if (info?.instagram_url) sameAs.push(info.instagram_url);
+  const address = buildPostalAddress(info?.location);
 
   return {
     "@context": "https://schema.org",
-    "@type": "Organization",
+    "@type": "ClothingStore",
     name: SITE_NAME,
     url: SITE_URL,
     slogan: SITE_TAGLINE,
@@ -46,8 +75,10 @@ export function buildOrganizationJsonLd(info?: Partial<ContactInfo>) {
       height: 512,
     },
     image: SITE_LOGO_URL,
+    priceRange: "PKR",
     ...(info?.email ? { email: info.email } : {}),
     ...(info?.phone ? { telephone: info.phone } : {}),
+    ...(address ? { address } : {}),
     ...(sameAs.length ? { sameAs } : {}),
   };
 }

@@ -247,7 +247,7 @@ const Checkout = () => {
                       {...register('emailOrPhone', {
                         required: 'Email or phone is required',
                       })}
-                      placeholder="your@email.com or +92 300 1234567"
+                      placeholder="your@email.com or +92 300 1056929"
                       className="mt-2"
                     />
                     {errors.emailOrPhone && (
@@ -363,19 +363,18 @@ const Checkout = () => {
                       Cash on Delivery
                     </Label>
                   </div>
-                  <div className="flex items-start space-x-2">
+                  <div className="flex items-start space-x-2 opacity-50">
                     <RadioGroupItem
                       value="card"
                       id="card"
+                      disabled
                       className="mt-1"
                     />
                     <div>
-                      <Label htmlFor="card" className="font-normal cursor-pointer">
+                      <Label htmlFor="card" className="font-normal cursor-not-allowed">
                         Card — Visa / Mastercard
                       </Label>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Secured by Safepay. Local & international cards accepted.
-                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Coming soon.</p>
                     </div>
                   </div>
                 </RadioGroup>

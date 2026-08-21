@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { z } from 'zod';
 import { serviceClient, siteOrigin, safepayConfig } from '../../server/paymentApi.js';
+import { sendOrderNotificationEmail } from '../../server/email.js';
 import { calcTotals, toMinorUnits } from '../../src/shared/pricing.js';
 
 /**
@@ -192,9 +193,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const publicToken: string = row.public_token;
 
     // ---------------------------------------------------------------------
-    // 4. Cash — done.
+    // 4. Cash — done. Notify the shop's inboxes; never let a slow/failed send hold up or fail
+    // the customer's checkout response (awaited, but its own success/failure never throws — see
+    // sendOrderNotificationEmail's doc comment).
     // ---------------------------------------------------------------------
     if (paymentMethod === 'cash') {
+      await sendOrderNotificationEmail({
+        orderId,
+        publicToken,
+        paymentMethod: 'cash',
+        customer,
+        items: lines.map((l) => ({ name: l.name, size: l.size, quantity: l.quantity, price: l.price })),
+        subtotal: totals.subtotal,
+        shipping: totals.shipping,
+        total: totals.total,
+      });
+
       res.status(200).json({
         orderId,
         publicToken,

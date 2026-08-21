@@ -13,6 +13,7 @@ import About from "./pages/About";
 import Collections from "./pages/Collections";
 import ProductDetail from "./pages/ProductDetail";
 import SizeGuide from "./pages/SizeGuide";
+import ShippingReturns from "./pages/ShippingReturns";
 import Contact from "./pages/Contact";
 import Checkout from "./pages/Checkout";
 import OrderStatus from "./pages/OrderStatus";
@@ -61,6 +62,7 @@ const App = () => (
               <Route path="/collections" element={<Collections />} />
               <Route path="/product/:id" element={<ProductDetail />} />
               <Route path="/size-guide" element={<SizeGuide />} />
+              <Route path="/shipping-returns" element={<ShippingReturns />} />
               <Route path="/contact" element={<Contact />} />
               <Route path="/checkout" element={<Checkout />} />
               {/* Static (not lazy) imports — these are on the money path, and a lazy chunk that

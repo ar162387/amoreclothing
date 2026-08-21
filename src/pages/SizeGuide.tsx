@@ -127,7 +127,7 @@ const SizeGuide = () => {
               Still unsure about your size? We're here to help.
             </p>
             <a
-              href="https://wa.me/923001234567"
+              href="https://wa.me/923001056929"
               className="inline-flex items-center gap-2 text-sm tracking-widest uppercase border-b border-foreground pb-1 hover:opacity-70 transition-opacity"
             >
               Chat with us on WhatsApp

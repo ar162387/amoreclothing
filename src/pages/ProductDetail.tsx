@@ -7,6 +7,8 @@ import { productsService, Product } from '@/services/products';
 import { toast } from 'sonner';
 import ProductFullscreenViewer from '@/components/ProductFullscreenViewer';
 import MobileAddToBagBar from '@/components/MobileAddToBagBar';
+import SizeGuideDialog from '@/components/SizeGuideDialog';
+import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
 import { useCartStore } from '@/store/cartStore';
 import { useSeo } from '@/hooks/use-seo';
 import { absoluteUrl, buildProductJsonLd, SITE_NAME, SITE_TITLE, SITE_DESCRIPTION } from '@/lib/seo';
@@ -23,7 +25,19 @@ const ProductDetail = () => {
   const [quantity, setQuantity] = useState(1);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [mobileGalleryApi, setMobileGalleryApi] = useState<CarouselApi>();
+  const [mobileGalleryIndex, setMobileGalleryIndex] = useState(0);
   const { items: cartItems, addItem, updateQuantity, openCart } = useCartStore();
+
+  useEffect(() => {
+    if (!mobileGalleryApi) return;
+    const onSelect = () => setMobileGalleryIndex(mobileGalleryApi.selectedScrollSnap());
+    onSelect();
+    mobileGalleryApi.on('select', onSelect);
+    return () => {
+      mobileGalleryApi.off('select', onSelect);
+    };
+  }, [mobileGalleryApi]);
 
   // Called unconditionally (before the loading/not-found early returns below) per the rules of hooks —
   // falls back to generic brand copy until the product has loaded.
@@ -140,11 +154,11 @@ const ProductDetail = () => {
 
   return (
     <Layout staticHeader>
-      {/* Mobile layout (<lg) — image 1, then the full buy-info block once, then every remaining image
-          stacked below it (no swipe carousel — showing everything in one scroll makes swiping
-          unnecessary). The sticky Add-to-Bag bar is the LAST child of this relative wrapper, which is
-          what makes it stop sticking exactly when the product content ends, instead of floating over
-          the footer below — see MobileAddToBagBar's doc comment. */}
+      {/* Mobile layout (<lg) — a single swipeable carousel (1 image visible at a time, swipe for the
+          rest) followed by the buy-info block once. Tapping the visible image opens the same
+          fullscreen lightbox as desktop. The sticky Add-to-Bag bar is the LAST child of this
+          relative wrapper, which is what makes it stop sticking exactly when the product content
+          ends, instead of floating over the footer below — see MobileAddToBagBar's doc comment. */}
       <div className="relative lg:hidden">
         <Link
           to="/"
@@ -155,49 +169,52 @@ const ProductDetail = () => {
         </Link>
 
         {hasImages ? (
-          <button
-            type="button"
-            onClick={() => openLightbox(0)}
-            className="w-full aspect-[3/4] bg-secondary block"
-          >
-            <img
-              src={getOptimizedImageUrl(images[0], 828)}
-              srcSet={buildSrcSet(images[0], GALLERY_WIDTHS)}
-              sizes={GALLERY_SIZES}
-              alt={`${product.name} - View 1`}
-              fetchPriority="high"
-              className="w-full h-full object-cover"
-            />
-          </button>
+          <Carousel opts={{ align: 'start' }} setApi={setMobileGalleryApi} className="w-full">
+            <CarouselContent className="ml-0">
+              {images.map((imageUrl, index) => (
+                <CarouselItem key={index} className="pl-0">
+                  <button
+                    type="button"
+                    onClick={() => openLightbox(index)}
+                    className="w-full aspect-[3/4] bg-secondary block"
+                  >
+                    <img
+                      src={getOptimizedImageUrl(imageUrl, 828)}
+                      srcSet={buildSrcSet(imageUrl, GALLERY_WIDTHS)}
+                      sizes={GALLERY_SIZES}
+                      alt={`${product.name} - View ${index + 1}`}
+                      fetchPriority={index === 0 ? 'high' : undefined}
+                      loading={index === 0 ? undefined : 'lazy'}
+                      decoding="async"
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            {images.length > 1 && (
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+                {images.map((_, index) => (
+                  <span
+                    key={index}
+                    className={`h-1.5 rounded-full transition-all ${
+                      index === mobileGalleryIndex ? 'w-4 bg-background' : 'w-1.5 bg-background/50'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+          </Carousel>
         ) : (
           <div className="w-full aspect-[3/4] bg-secondary flex items-center justify-center">
             <p className="text-muted-foreground">No images available</p>
           </div>
         )}
 
-        {/* Title only — price lives solely in the sticky bar below, so it's never shown twice */}
+        {/* Title — price lives solely in the sticky bar below, so it's never shown twice */}
         <div className="px-6 pt-6">
           <h1 className="font-serif text-3xl font-light">{product.name}</h1>
         </div>
-
-        {/* Image 2 */}
-        {images[1] && (
-          <button
-            type="button"
-            onClick={() => openLightbox(1)}
-            className="mt-6 w-full aspect-[3/4] bg-secondary block"
-          >
-            <img
-              src={getOptimizedImageUrl(images[1], 828)}
-              srcSet={buildSrcSet(images[1], GALLERY_WIDTHS)}
-              sizes={GALLERY_SIZES}
-              alt={`${product.name} - View 2`}
-              loading="lazy"
-              decoding="async"
-              className="w-full h-full object-cover"
-            />
-          </button>
-        )}
 
         {/* Description — no label */}
         {product.description && (
@@ -208,41 +225,14 @@ const ProductDetail = () => {
           </div>
         )}
 
-        {/* Remaining images (3rd onward) */}
-        {images.length > 2 && (
-          <div className="space-y-0">
-            {images.slice(2).map((imageUrl, i) => {
-              const index = i + 2;
-              return (
-                <button
-                  key={index}
-                  type="button"
-                  onClick={() => openLightbox(index)}
-                  className="w-full aspect-[3/4] bg-secondary block"
-                >
-                  <img
-                    src={getOptimizedImageUrl(imageUrl, 828)}
-                    srcSet={buildSrcSet(imageUrl, GALLERY_WIDTHS)}
-                    sizes={GALLERY_SIZES}
-                    alt={`${product.name} - View ${index + 1}`}
-                    loading="lazy"
-                    decoding="async"
-                    className="w-full h-full object-cover"
-                  />
-                </button>
-              );
-            })}
-          </div>
-        )}
-
         {/* Size + Quantity — the ONLY place either is chosen; the sticky bar just reflects this
             same state rather than offering its own separate picker. */}
         <div className="p-6">
           {product.sizes && product.sizes.length > 0 && (
             <div className="mb-8">
-              {/* Size Guide link hidden for now */}
-              <div className="mb-4">
+              <div className="mb-4 flex items-center justify-between">
                 <span className="text-sm font-medium">Size</span>
+                <SizeGuideDialog />
               </div>
               <div className="flex flex-wrap gap-3">
                 {product.sizes.map((size) => (
@@ -283,8 +273,13 @@ const ProductDetail = () => {
 
           <div className="space-y-4 text-sm font-light text-muted-foreground">
             <p>• Free shipping on orders over PKR 15,000</p>
-            <p>• 14-day return policy</p>
-            <p>• WhatsApp support: +92 300 1234567</p>
+            <p>
+              •{' '}
+              <Link to="/shipping-returns" className="underline hover:text-foreground transition-colors">
+                Shipping, Exchange & Return
+              </Link>
+            </p>
+            <p>• WhatsApp support: +92 300 1056929</p>
           </div>
         </div>
 
@@ -366,9 +361,9 @@ const ProductDetail = () => {
             {/* Size Selection */}
             {product.sizes && product.sizes.length > 0 && (
               <div className="mb-8">
-                {/* Size Guide link hidden for now */}
-                <div className="mb-4">
+                <div className="mb-4 flex items-center justify-between">
                   <span className="text-sm font-medium">Size</span>
+                  <SizeGuideDialog />
                 </div>
                 <div className="flex flex-wrap gap-3">
                   {product.sizes.map((size) => (
@@ -420,8 +415,13 @@ const ProductDetail = () => {
             {/* Additional Info */}
             <div className="space-y-4 text-sm font-light text-muted-foreground">
               <p>• Free shipping on orders over PKR 15,000</p>
-              <p>• 14-day return policy</p>
-              <p>• WhatsApp support: +92 300 1234567</p>
+              <p>
+                •{' '}
+                <Link to="/shipping-returns" className="underline hover:text-foreground transition-colors">
+                  Shipping, Exchange & Return
+                </Link>
+              </p>
+              <p>• WhatsApp support: +92 300 1056929</p>
             </div>
           </div>
         </div>

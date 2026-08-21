@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type SitePage = "home" | "contact";
+export type SitePage = "home" | "contact" | "shipping";
 export type MediaType = "image" | "video";
 
 export interface SiteMediaValue {
@@ -43,6 +43,12 @@ export interface HomePhilosophySection {
     quote: string;
 }
 
+export interface HomeMarquee {
+    /** Whether the scrolling announcement line shows under the hero. */
+    enabled: boolean;
+    text: string;
+}
+
 export interface HomeContent {
     hero: HomeHero;
     products: HomeProductsSection;
@@ -50,6 +56,7 @@ export interface HomeContent {
     philosophy: HomePhilosophySection;
     /** Seconds each rotating item stays on screen before crossfading. Applies to hero + both tiles. */
     media_rotation_seconds: number;
+    marquee: HomeMarquee;
 }
 
 export interface ContactHero {
@@ -79,9 +86,22 @@ export interface ContactContent {
     form: ContactFormCopy;
 }
 
+export interface ShippingHero {
+    eyebrow: string;
+    title: string;
+    body: string;
+}
+
+export interface ShippingContent {
+    hero: ShippingHero;
+    /** Rich-ish body copy for the page — rendered as paragraphs split on blank lines. */
+    body: string;
+}
+
 export interface SiteContent {
     home: HomeContent;
     contact: ContactContent;
+    shipping: ShippingContent;
 }
 
 // What the DB actually holds: any subtree may be missing, since content is

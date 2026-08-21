@@ -41,7 +41,7 @@ const Cart = () => {
       `Hello! I would like to place an order:\n\n${message}\n\nTotal: ${formatPrice(totalPrice)}`
     );
     
-    window.open(`https://wa.me/923001234567?text=${fullMessage}`, '_blank');
+    window.open(`https://wa.me/923001056929?text=${fullMessage}`, '_blank');
     toast.success('Redirecting to WhatsApp...');
   };
 

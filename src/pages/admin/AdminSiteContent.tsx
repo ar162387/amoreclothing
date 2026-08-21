@@ -57,8 +57,12 @@ const AdminSiteContent = () => {
   const [initialized, setInitialized] = useState(false);
   const [pending, setPending] = useState<PendingMap>({});
   const [newMedia, setNewMedia] = useState<NewMediaMap>({});
-  const [dirty, setDirty] = useState<{ home: boolean; contact: boolean }>({ home: false, contact: false });
-  const [saving, setSaving] = useState<'home' | 'contact' | null>(null);
+  const [dirty, setDirty] = useState<{ home: boolean; contact: boolean; shipping: boolean }>({
+    home: false,
+    contact: false,
+    shipping: false,
+  });
+  const [saving, setSaving] = useState<'home' | 'contact' | 'shipping' | null>(null);
 
   // Seed the draft once the initial fetch resolves. After that, the draft
   // is fully local — a background refresh() from another tab/save never
@@ -73,7 +77,7 @@ const AdminSiteContent = () => {
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      if (dirty.home || dirty.contact) {
+      if (dirty.home || dirty.contact || dirty.shipping) {
         e.preventDefault();
       }
     };
@@ -148,6 +152,10 @@ const AdminSiteContent = () => {
     setDraft((d) => ({ ...d, home: { ...d.home, media_rotation_seconds: seconds } }));
     setDirty((s) => ({ ...s, home: true }));
   };
+  const updateHomeMarquee = (patch: Partial<SiteContent['home']['marquee']>) => {
+    setDraft((d) => ({ ...d, home: { ...d.home, marquee: { ...d.home.marquee, ...patch } } }));
+    setDirty((s) => ({ ...s, home: true }));
+  };
 
   // --- Home field updaters -------------------------------------------------
   const updateHomeHero = (patch: Partial<SiteContent['home']['hero']>) => {
@@ -187,6 +195,16 @@ const AdminSiteContent = () => {
   const updateContactForm = (patch: Partial<SiteContent['contact']['form']>) => {
     setDraft((d) => ({ ...d, contact: { ...d.contact, form: { ...d.contact.form, ...patch } } }));
     setDirty((s) => ({ ...s, contact: true }));
+  };
+
+  // --- Shipping field updaters ----------------------------------------------
+  const updateShippingHero = (patch: Partial<SiteContent['shipping']['hero']>) => {
+    setDraft((d) => ({ ...d, shipping: { ...d.shipping, hero: { ...d.shipping.hero, ...patch } } }));
+    setDirty((s) => ({ ...s, shipping: true }));
+  };
+  const updateShippingBody = (body: string) => {
+    setDraft((d) => ({ ...d, shipping: { ...d.shipping, body } }));
+    setDirty((s) => ({ ...s, shipping: true }));
   };
 
   const clearPendingByPrefix = (prefix: string) => {
@@ -276,6 +294,23 @@ const AdminSiteContent = () => {
     }
   };
 
+  const handleSaveShipping = async () => {
+    setSaving('shipping');
+    try {
+      const { error } = await siteContentService.upsertPage('shipping', pruneEmpty(draft.shipping));
+      if (error) throw error;
+
+      setDirty((s) => ({ ...s, shipping: false }));
+      toast.success('Shipping page updated');
+      await refresh();
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to save. Nothing was changed.');
+    } finally {
+      setSaving(null);
+    }
+  };
+
   if (!initialized) {
     return (
       <AdminLayout>
@@ -301,6 +336,9 @@ const AdminSiteContent = () => {
           </TabsTrigger>
           <TabsTrigger value="contact">
             Contact {dirty.contact && <span className="ml-2 text-xs text-amber-600">•</span>}
+          </TabsTrigger>
+          <TabsTrigger value="shipping">
+            Shipping & Returns {dirty.shipping && <span className="ml-2 text-xs text-amber-600">•</span>}
           </TabsTrigger>
         </TabsList>
 
@@ -331,6 +369,28 @@ const AdminSiteContent = () => {
             <p className="text-xs text-muted-foreground">
               seconds between transitions for the Hero and Shop by Style tiles, whenever a slot has
               more than one item
+            </p>
+          </div>
+
+          <div className="bg-background rounded-lg border p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="marquee-enabled">Running Line (Home Page)</Label>
+              <input
+                id="marquee-enabled"
+                type="checkbox"
+                checked={draft.home.marquee.enabled}
+                onChange={(e) => updateHomeMarquee({ enabled: e.target.checked })}
+                className="h-4 w-4"
+              />
+            </div>
+            <Input
+              value={draft.home.marquee.text}
+              placeholder={SITE_CONTENT_DEFAULTS.home.marquee.text}
+              onChange={(e) => updateHomeMarquee({ text: e.target.value })}
+              disabled={!draft.home.marquee.enabled}
+            />
+            <p className="text-xs text-muted-foreground">
+              The scrolling announcement line shown right under the hero on the home page.
             </p>
           </div>
 
@@ -632,6 +692,61 @@ const AdminSiteContent = () => {
               </AccordionContent>
             </AccordionItem>
           </Accordion>
+        </TabsContent>
+
+        {/* ---------------- SHIPPING & RETURNS ---------------- */}
+        <TabsContent value="shipping" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+              {dirty.shipping ? 'Unsaved changes' : 'All changes saved'}
+            </p>
+            <Button onClick={handleSaveShipping} disabled={saving === 'shipping' || !dirty.shipping}>
+              {saving === 'shipping' ? 'Saving...' : 'Save Shipping & Returns Page'}
+            </Button>
+          </div>
+
+          <div className="bg-background rounded-lg border p-6 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Eyebrow</Label>
+                <Input
+                  value={draft.shipping.hero.eyebrow}
+                  placeholder={SITE_CONTENT_DEFAULTS.shipping.hero.eyebrow}
+                  onChange={(e) => updateShippingHero({ eyebrow: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Title</Label>
+                <Input
+                  value={draft.shipping.hero.title}
+                  placeholder={SITE_CONTENT_DEFAULTS.shipping.hero.title}
+                  onChange={(e) => updateShippingHero({ title: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Subtitle</Label>
+              <Textarea
+                rows={2}
+                value={draft.shipping.hero.body}
+                placeholder={SITE_CONTENT_DEFAULTS.shipping.hero.body}
+                onChange={(e) => updateShippingHero({ body: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Page Body</Label>
+              <Textarea
+                rows={16}
+                value={draft.shipping.body}
+                placeholder={SITE_CONTENT_DEFAULTS.shipping.body}
+                onChange={(e) => updateShippingBody(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Separate paragraphs with a blank line. A short ALL-CAPS line on its own (e.g.
+                "SHIPPING") renders as a section heading.
+              </p>
+            </div>
+          </div>
         </TabsContent>
       </Tabs>
     </AdminLayout>

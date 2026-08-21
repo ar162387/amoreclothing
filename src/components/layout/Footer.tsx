@@ -31,7 +31,7 @@ const Footer = () => {
               <Link to="/contact" className="text-sm font-light opacity-70 hover:opacity-100 transition-opacity">
                 Contact
               </Link>
-              <Link to="/contact" className="text-sm font-light opacity-70 hover:opacity-100 transition-opacity">
+              <Link to="/shipping-returns" className="text-sm font-light opacity-70 hover:opacity-100 transition-opacity">
                 Shipping & Returns
               </Link>
             </nav>

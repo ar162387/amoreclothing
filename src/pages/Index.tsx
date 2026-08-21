@@ -65,6 +65,23 @@ const Index = () => {
         </div>
       </section>
 
+      {/* Running announcement line */}
+      {home.marquee.enabled && home.marquee.text && (
+        <div className="border-y border-border bg-foreground text-background overflow-hidden py-3">
+          <div className="flex whitespace-nowrap animate-marquee">
+            {[0, 1].map((i) => (
+              <span key={i} aria-hidden={i === 1} className="flex shrink-0 items-center">
+                {[...Array(4)].map((_, j) => (
+                  <span key={j} className="mx-8 text-xs tracking-[0.15em] uppercase font-light">
+                    {home.marquee.text}
+                  </span>
+                ))}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Products */}
       <section className="py-20 lg:py-28">
         <div className="container mx-auto px-6">

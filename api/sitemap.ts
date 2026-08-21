@@ -24,6 +24,9 @@ interface SitemapUrl {
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
   const urls: SitemapUrl[] = [
     { loc: `${SITE_URL}/`, priority: '1.0' },
+    { loc: `${SITE_URL}/collections`, priority: '0.9' },
+    { loc: `${SITE_URL}/size-guide`, priority: '0.5' },
+    { loc: `${SITE_URL}/shipping-returns`, priority: '0.5' },
     { loc: `${SITE_URL}/contact`, priority: '0.6' },
   ];
 

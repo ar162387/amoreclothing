@@ -8,11 +8,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { useNoIndex } from '@/hooks/use-no-index';
+import { useSeo } from '@/hooks/use-seo';
+import { SITE_NAME } from '@/lib/seo';
 import sizeguideHero from '@/assets/sizeguide-hero.jpg';
 
 const SizeGuide = () => {
-  useNoIndex();
+  useSeo({
+    title: `Size Guide | ${SITE_NAME}`,
+    description: 'Find your perfect fit with the RAR Studio size chart and measuring guide.',
+    canonicalPath: '/size-guide',
+  });
 
   return (
     <Layout hasHero>

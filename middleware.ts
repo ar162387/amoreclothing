@@ -10,7 +10,7 @@ import { next, rewrite } from '@vercel/edge';
  * real server-rendered HTML instead of the SPA's empty `<div id="root">` shell.
  */
 export const config = {
-  matcher: ['/', '/contact', '/product/:path*'],
+  matcher: ['/', '/contact', '/product/:path*', '/collections', '/size-guide', '/shipping-returns'],
 };
 
 // Search engines, AI answer engines / GEO crawlers, and social share-preview bots — none of these

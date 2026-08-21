@@ -4,11 +4,19 @@ import ProductCard from '@/components/ProductCard';
 import ProductCardSkeleton from '@/components/ProductCardSkeleton';
 import { productsService, Product } from '@/services/products';
 import { collectionsService, Collection } from '@/services/collections';
-import { useNoIndex } from '@/hooks/use-no-index';
+import { useSeo } from '@/hooks/use-seo';
+import { SITE_NAME } from '@/lib/seo';
 import collectionsHero from '@/assets/collections-hero.jpg';
 
+const COLLECTIONS_DESCRIPTION =
+  'Shop the full RAR Studio collection — timeless pieces crafted for the modern woman, made in Pakistan.';
+
 const Collections = () => {
-  useNoIndex();
+  useSeo({
+    title: `Shop the Collection | ${SITE_NAME}`,
+    description: COLLECTIONS_DESCRIPTION,
+    canonicalPath: '/collections',
+  });
 
   const [products, setProducts] = useState<Product[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);

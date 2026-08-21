@@ -50,8 +50,8 @@ function patchLink(rel: string, href: string) {
 
 /**
  * Per-route document head management: title, meta description, canonical link, Open Graph / Twitter
- * tags, and JSON-LD structured data. Only called from pages that are meant to be indexable (Index,
- * Contact, ProductDetail) — About/Collections/SizeGuide use useNoIndex instead, not this.
+ * tags, and JSON-LD structured data. Only called from pages that are meant to be indexable — About
+ * still uses useNoIndex instead, not this.
  *
  * Same imperative create-or-patch-then-restore approach as useNoIndex: every tag either already exists
  * (from index.html's shared defaults) and gets patched then restored, or gets created fresh and removed,

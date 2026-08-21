@@ -253,6 +253,16 @@ const ProductDetail = () => {
           </div>
         )}
 
+        {/* Fabric / Care — admin-editable per product, shown right below the description */}
+        {product.fabric_care && (
+          <div className="px-6 pb-6">
+            <h2 className="text-xs tracking-[0.15em] uppercase font-medium mb-2">Fabric / Care</h2>
+            <p className="text-sm font-light leading-relaxed text-muted-foreground whitespace-pre-line">
+              {product.fabric_care.body}
+            </p>
+          </div>
+        )}
+
         {/* Size + Quantity — the ONLY place either is chosen; the sticky bar just reflects this
             same state rather than offering its own separate picker. */}
         <div className="p-6">
@@ -260,7 +270,7 @@ const ProductDetail = () => {
             <div className="mb-8">
               <div className="mb-4 flex items-center justify-between">
                 <span className="text-sm font-medium">Size</span>
-                <SizeGuideDialog />
+                <SizeGuideDialog sizeGuide={product.size_guide || []} sizes={product.sizes || []} />
               </div>
               <div className="flex flex-wrap gap-3">
                 {product.sizes.map((size) => (
@@ -300,7 +310,7 @@ const ProductDetail = () => {
           </div>
 
           <div className="space-y-4 text-sm font-light text-muted-foreground">
-            <p>• Free shipping on orders over PKR 15,000</p>
+            <p>• Free shipping via WhatsApp checkout · Rs 249 delivery on Cash on Delivery orders</p>
             <p>
               •{' '}
               <Link to="/shipping-returns" className="underline hover:text-foreground transition-colors">
@@ -396,12 +406,22 @@ const ProductDetail = () => {
               </p>
             )}
 
+            {/* Fabric / Care — admin-editable per product, shown right below the description */}
+            {product.fabric_care && (
+              <div className="mb-8">
+                <h2 className="text-xs tracking-[0.15em] uppercase font-medium mb-2">Fabric / Care</h2>
+                <p className="text-sm font-light leading-relaxed text-muted-foreground whitespace-pre-line">
+                  {product.fabric_care.body}
+                </p>
+              </div>
+            )}
+
             {/* Size Selection */}
             {product.sizes && product.sizes.length > 0 && (
               <div className="mb-8">
                 <div className="mb-4 flex items-center justify-between">
                   <span className="text-sm font-medium">Size</span>
-                  <SizeGuideDialog />
+                  <SizeGuideDialog sizeGuide={product.size_guide || []} sizes={product.sizes || []} />
                 </div>
                 <div className="flex flex-wrap gap-3">
                   {product.sizes.map((size) => (
@@ -452,7 +472,7 @@ const ProductDetail = () => {
 
             {/* Additional Info */}
             <div className="space-y-4 text-sm font-light text-muted-foreground">
-              <p>• Free shipping on orders over PKR 15,000</p>
+              <p>• Free shipping via WhatsApp checkout · Rs 249 delivery on Cash on Delivery orders</p>
               <p>
                 •{' '}
                 <Link to="/shipping-returns" className="underline hover:text-foreground transition-colors">

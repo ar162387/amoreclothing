@@ -2,8 +2,9 @@
 import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Search, Upload, X } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
-import { productsService, Product, CreateProductDTO } from '@/services/products';
+import { productsService, Product, CreateProductDTO, SizeGuide, SizeGuideHead, SizeGuideRow } from '@/services/products';
 import { collectionsService, Collection } from '@/services/collections';
+import { fabricCareService, FabricCare } from '@/services/fabricCare';
 import { uploadService } from '@/services/upload';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
@@ -25,6 +26,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 const AdminProducts = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
+  const [fabricCareOptions, setFabricCareOptions] = useState<FabricCare[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -51,9 +53,19 @@ const AdminProducts = () => {
     }
   };
 
+  const fetchFabricCare = async () => {
+    const { data, error } = await fabricCareService.getAll();
+    if (error) {
+      console.error('Failed to load fabric & care entries', error);
+    } else {
+      setFabricCareOptions(data || []);
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
     fetchCollections();
+    fetchFabricCare();
   }, []);
 
   const handleDelete = async (id: string) => {
@@ -127,6 +139,7 @@ const AdminProducts = () => {
             <ProductForm
               product={editingProduct}
               collections={collections}
+              fabricCareOptions={fabricCareOptions}
               onSave={handleSave}
               onCancel={() => setIsDialogOpen(false)}
             />
@@ -242,11 +255,14 @@ const AdminProducts = () => {
 interface ProductFormProps {
   product: Product | null;
   collections: Collection[];
+  fabricCareOptions: FabricCare[];
   onSave: (data: CreateProductDTO, id?: string) => Promise<void>;
   onCancel: () => void;
 }
 
 const AVAILABLE_SIZES = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL'];
+
+const newId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 // Local file state interface
 interface LocalFile {
@@ -254,7 +270,7 @@ interface LocalFile {
   preview: string;
 }
 
-const ProductForm = ({ product, collections, onSave, onCancel }: ProductFormProps) => {
+const ProductForm = ({ product, collections, fabricCareOptions, onSave, onCancel }: ProductFormProps) => {
   const [formData, setFormData] = useState<CreateProductDTO>({
     name: product?.name || '',
     price: product?.price || 0,
@@ -266,6 +282,8 @@ const ProductForm = ({ product, collections, onSave, onCancel }: ProductFormProp
     images_other: product?.images_other || [],
     available: product?.available ?? true,
     featured: product?.featured ?? false,
+    size_guide: product?.size_guide || [],
+    fabric_care_id: product?.fabric_care_id || null,
   });
 
   const [localFront, setLocalFront] = useState<LocalFile | null>(null);
@@ -286,6 +304,8 @@ const ProductForm = ({ product, collections, onSave, onCancel }: ProductFormProp
       images_other: product?.images_other || [],
       available: product?.available ?? true,
       featured: product?.featured ?? false,
+      size_guide: product?.size_guide || [],
+      fabric_care_id: product?.fabric_care_id || null,
     });
     // Clear local file states when switching products
     setLocalFront(null);
@@ -340,8 +360,64 @@ const ProductForm = ({ product, collections, onSave, onCancel }: ProductFormProp
     });
   };
 
+  // --- Size guide (dynamic heads/rows, per selected size) -----------------
+  const sizeGuide: SizeGuide = formData.size_guide || [];
+  const selectedSizes = formData.sizes || [];
+
+  const setSizeGuide = (next: SizeGuide) => setFormData((prev) => ({ ...prev, size_guide: next }));
+
+  const addHead = () => setSizeGuide([...sizeGuide, { id: newId(), label: '', rows: [] }]);
+  const removeHead = (headId: string) => setSizeGuide(sizeGuide.filter((h) => h.id !== headId));
+  const updateHeadLabel = (headId: string, label: string) =>
+    setSizeGuide(sizeGuide.map((h) => (h.id === headId ? { ...h, label } : h)));
+
+  const addRow = (headId: string) =>
+    setSizeGuide(
+      sizeGuide.map((h) => (h.id === headId ? { ...h, rows: [...h.rows, { id: newId(), label: '', values: {} }] } : h))
+    );
+  const removeRow = (headId: string, rowId: string) =>
+    setSizeGuide(sizeGuide.map((h) => (h.id === headId ? { ...h, rows: h.rows.filter((r) => r.id !== rowId) } : h)));
+  const updateRowLabel = (headId: string, rowId: string, label: string) =>
+    setSizeGuide(
+      sizeGuide.map((h) =>
+        h.id === headId ? { ...h, rows: h.rows.map((r) => (r.id === rowId ? { ...r, label } : r)) } : h
+      )
+    );
+  const updateRowValue = (headId: string, rowId: string, size: string, value: string) =>
+    setSizeGuide(
+      sizeGuide.map((h) =>
+        h.id === headId
+          ? { ...h, rows: h.rows.map((r) => (r.id === rowId ? { ...r, values: { ...r.values, [size]: value } } : r)) }
+          : h
+      )
+    );
+
+  /** Every row must have a value for every currently-selected size before saving — a size guide
+   * that's silently missing a column is worse than no size guide at all. */
+  const validateSizeGuide = (): string | null => {
+    for (const head of sizeGuide) {
+      if (!head.label.trim()) return 'Every size guide head needs a name.';
+      for (const row of head.rows) {
+        if (!row.label.trim()) return `Every row under "${head.label}" needs a name.`;
+        for (const size of selectedSizes) {
+          if (!row.values[size]?.trim()) {
+            return `"${head.label} — ${row.label}" is missing a value for size ${size}.`;
+          }
+        }
+      }
+    }
+    return null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const sizeGuideError = validateSizeGuide();
+    if (sizeGuideError) {
+      toast.error(sizeGuideError);
+      return;
+    }
+
     setUploading(true);
 
     try {
@@ -426,6 +502,29 @@ const ProductForm = ({ product, collections, onSave, onCancel }: ProductFormProp
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="fabric-care">Fabric &amp; Care</Label>
+            <Select
+              value={formData.fabric_care_id || 'none'}
+              onValueChange={(value) => setFormData({ ...formData, fabric_care_id: value === 'none' ? null : value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select fabric & care info" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                {fabricCareOptions.map((fc) => (
+                  <SelectItem key={fc.id} value={fc.id}>
+                    {fc.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Shown below the description on the product page. Manage entries under Fabric & Care.
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -608,6 +707,86 @@ const ProductForm = ({ product, collections, onSave, onCancel }: ProductFormProp
 
           {uploading && <p className="text-xs text-blue-500 text-center animate-pulse">Uploading images...</p>}
         </div>
+      </div>
+
+      {/* Size Guide — any number of heads (e.g. Shirt, Trouser), each with any number of rows
+          (e.g. Length, Chest), each requiring a value for every currently-selected size. */}
+      <div className="space-y-3 pt-4 border-t">
+        <div>
+          <Label className="text-base">Size Guide</Label>
+          <p className="text-xs text-muted-foreground mt-1">
+            {selectedSizes.length === 0
+              ? 'Select at least one size above to build a size guide.'
+              : `Every row needs a value for each selected size: ${selectedSizes.join(', ')}.`}
+          </p>
+        </div>
+
+        {sizeGuide.map((head) => (
+          <div key={head.id} className="border rounded-md p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Input
+                value={head.label}
+                onChange={(e) => updateHeadLabel(head.id, e.target.value)}
+                placeholder="Head name, e.g. Shirt"
+                className="font-medium"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                type="button"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                onClick={() => removeHead(head.id)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {head.rows.map((row) => (
+              <div key={row.id} className="flex flex-wrap items-center gap-2 pl-4 border-l-2 border-border">
+                <Input
+                  value={row.label}
+                  onChange={(e) => updateRowLabel(head.id, row.id, e.target.value)}
+                  placeholder="Row, e.g. Length"
+                  className="w-40 shrink-0"
+                />
+                {selectedSizes.map((size) => (
+                  <div key={size} className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground w-6 text-center">{size}</span>
+                    <Input
+                      value={row.values[size] || ''}
+                      onChange={(e) => updateRowValue(head.id, row.id, size, e.target.value)}
+                      placeholder="e.g. 68 cm"
+                      className="w-24"
+                    />
+                  </div>
+                ))}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  type="button"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                  onClick={() => removeRow(head.id, row.id)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+
+            <Button
+              variant="outline"
+              size="sm"
+              type="button"
+              onClick={() => addRow(head.id)}
+              disabled={selectedSizes.length === 0}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" /> Add Row
+            </Button>
+          </div>
+        ))}
+
+        <Button variant="outline" size="sm" type="button" onClick={addHead}>
+          <Plus className="h-3.5 w-3.5 mr-1" /> Add Head (e.g. Shirt, Trouser)
+        </Button>
       </div>
 
       <div className="flex gap-4 pt-4 border-t">

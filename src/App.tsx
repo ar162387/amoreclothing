@@ -27,6 +27,7 @@ const ProtectedRoute = lazy(() =>
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AdminProducts = lazy(() => import("./pages/admin/AdminProducts"));
 const AdminCollections = lazy(() => import("./pages/admin/AdminCollections"));
+const AdminFabricCare = lazy(() => import("./pages/admin/AdminFabricCare"));
 const AdminOrders = lazy(() => import("./pages/admin/AdminOrders"));
 const AdminSiteContent = lazy(() => import("./pages/admin/AdminSiteContent"));
 
@@ -75,6 +76,7 @@ const App = () => (
                 <Route path="/admin" element={<AdminDashboard />} />
                 <Route path="/admin/products" element={<AdminProducts />} />
                 <Route path="/admin/collections" element={<AdminCollections />} />
+                <Route path="/admin/fabric-care" element={<AdminFabricCare />} />
                 <Route path="/admin/orders" element={<AdminOrders />} />
                 <Route path="/admin/site-content" element={<AdminSiteContent />} />
               </Route>

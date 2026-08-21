@@ -1,6 +1,5 @@
 
-import { s3Client } from "@/integrations/supabase/s3-client";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { supabase } from "@/integrations/supabase/client";
 
 // Raw-camera-photo ceiling for what we'll even attempt to read into the browser — the real, much
 // smaller limit that actually reaches S3 is enforced by compressImage() below. 15-25MB straight off a
@@ -82,6 +81,14 @@ function resolveExtension(file: File): string {
     return MIME_EXTENSIONS[file.type] || "bin";
 }
 
+/**
+ * Uploads via the standard Supabase Storage JS SDK (REST API), not the raw S3-protocol endpoint.
+ * The S3 endpoint is meant for external S3 tools (rclone, aws-cli) — Supabase's own docs say the
+ * REST API/SDK don't use it — and browsers hitting it directly for a PutObject hit a CORS
+ * preflight it doesn't answer. The Storage REST API answers CORS correctly and is authorized by
+ * the existing "Authenticated Upload/Update/Delete Access" policies on storage.objects, so no
+ * long-lived S3 secret key needs to ship in the client bundle either.
+ */
 async function upload(file: File, folder: string): Promise<string> {
     try {
         const uploadFile = IMAGE_MIME_TYPES.has(file.type) ? await compressImage(file) : file;
@@ -90,23 +97,15 @@ async function upload(file: File, folder: string): Promise<string> {
         const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
         const filePath = `${folder}/${fileName}`;
 
-        // Convert file to ArrayBuffer to avoid stream reader issues in some browser environments
-        const fileBuffer = await uploadFile.arrayBuffer();
-
-        const command = new PutObjectCommand({
-            Bucket: "products",
-            Key: filePath,
-            Body: new Uint8Array(fileBuffer), // Send as Uint8Array
-            ContentType: uploadFile.type,
-            CacheControl: "public, max-age=31536000, immutable",
+        const { error } = await supabase.storage.from("products").upload(filePath, uploadFile, {
+            contentType: uploadFile.type,
+            cacheControl: "31536000",
+            upsert: false,
         });
+        if (error) throw error;
 
-        await s3Client.send(command);
-
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const publicUrl = `${supabaseUrl}/storage/v1/object/public/products/${filePath}`;
-
-        return publicUrl;
+        const { data } = supabase.storage.from("products").getPublicUrl(filePath);
+        return data.publicUrl;
     } catch (error) {
         console.error("Error uploading file:", error);
         throw error;

@@ -6,6 +6,7 @@ import {
   FolderOpen,
   ShoppingCart,
   FileText,
+  Shirt,
   Menu,
   X,
   ExternalLink,
@@ -39,6 +40,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/admin/products', label: 'Products', icon: Package },
     { href: '/admin/collections', label: 'Collections', icon: FolderOpen },
+    { href: '/admin/fabric-care', label: 'Fabric & Care', icon: Shirt },
     { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
     { href: '/admin/site-content', label: 'Site Content', icon: FileText },
   ];

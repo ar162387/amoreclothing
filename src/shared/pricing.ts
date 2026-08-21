@@ -11,8 +11,10 @@
  */
 
 export const CURRENCY = "PKR";
-export const FREE_SHIPPING_THRESHOLD = 15000;
-export const FLAT_SHIPPING_COST = 500;
+/** Flat Cash on Delivery delivery charge — no free-shipping threshold anymore; COD is always
+ * this amount, and WhatsApp/online checkout is always free (handled separately at the call
+ * sites that build a WhatsApp order summary, since that flow never calls calcShipping). */
+export const FLAT_SHIPPING_COST = 249;
 
 /** How many PKR "cents" (paisa) make up one rupee — the single choke point for the
  * lowest-denomination amount Safepay's API expects. If sandbox recon (plan Step 0) reveals
@@ -28,8 +30,8 @@ export function calcSubtotal(lines: PriceLine[]): number {
   return lines.reduce((sum, line) => sum + line.price * line.quantity, 0);
 }
 
-export function calcShipping(subtotal: number): number {
-  return subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : FLAT_SHIPPING_COST;
+export function calcShipping(_subtotal: number): number {
+  return FLAT_SHIPPING_COST;
 }
 
 export interface Totals {

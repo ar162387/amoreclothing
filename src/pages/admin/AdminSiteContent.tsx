@@ -601,8 +601,16 @@ const AdminSiteContent = () => {
                 </div>
                 <MediaSlotField
                   slotId="contact.hero"
-                  value={draft.contact.hero.media}
-                  onValueChange={(v) => updateContactHero({ media: v ?? SITE_CONTENT_DEFAULTS.contact.hero.media })}
+                  value={draft.contact.hero.media.url ? draft.contact.hero.media : null}
+                  onValueChange={(v) =>
+                    // A cleared image is stored as the "" sentinel (the same "empty === use
+                    // default" convention mergeContent/pruneEmpty already use everywhere else),
+                    // NOT immediately snapped back to the default value. Snapping back here was
+                    // the bug: it re-populated `value.url` on the same render the X was clicked,
+                    // so the empty/upload state MediaUploader needs in order to let the admin pick
+                    // a replacement photo was never reachable — "remove" looked like it did nothing.
+                    updateContactHero({ media: v ?? { type: 'image', url: '', alt: '' } })
+                  }
                   pending={pending['contact.hero'] ?? null}
                   onPendingChange={(p) => setPendingFor('contact.hero', p)}
                   posterPending={pending['contact.hero.poster'] ?? null}

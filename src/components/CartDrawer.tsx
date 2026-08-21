@@ -3,7 +3,7 @@ import { Plus, Minus, ShoppingBag, X } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { useCartStore, getCartTotals } from '@/store/cartStore';
 import { formatPrice } from '@/data/store';
-import { calcShipping, FREE_SHIPPING_THRESHOLD } from '@/shared/pricing';
+import { FLAT_SHIPPING_COST } from '@/shared/pricing';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getOptimizedImageUrl } from '@/lib/productImage';
@@ -13,7 +13,9 @@ const CartDrawer = () => {
   const navigate = useNavigate();
   const { items, isOpen, closeCart, removeItem, updateQuantity } = useCartStore();
   const { totalItems, totalPrice } = getCartTotals(items);
-  const shippingCost = calcShipping(totalPrice);
+  // Shipping is always free via WhatsApp/online checkout — the flat Rs {FLAT_SHIPPING_COST}
+  // Cash on Delivery charge only applies on the separate /checkout (COD) flow, which computes
+  // and displays its own total independently.
 
   const handleCheckout = () => {
     window.open(buildWhatsAppCheckoutUrl(items, totalPrice), '_blank');
@@ -148,14 +150,14 @@ const CartDrawer = () => {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Shipping</span>
-                  <span>{shippingCost === 0 ? 'Free' : formatPrice(shippingCost)}</span>
+                  <span>Free</span>
                 </div>
               </div>
 
               <div className="border-t border-border pt-4">
                 <div className="flex justify-between font-medium mb-4">
                   <span>Total</span>
-                  <span>{formatPrice(totalPrice + shippingCost)}</span>
+                  <span>{formatPrice(totalPrice)}</span>
                 </div>
               </div>
 
@@ -178,7 +180,7 @@ const CartDrawer = () => {
               </div>
 
               <p className="text-xs text-muted-foreground text-center mt-4">
-                Free shipping on orders over {formatPrice(FREE_SHIPPING_THRESHOLD)}
+                Free shipping via WhatsApp · Rs {FLAT_SHIPPING_COST} delivery on Cash on Delivery orders
               </p>
             </div>
           </>

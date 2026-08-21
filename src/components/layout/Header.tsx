@@ -75,20 +75,28 @@ const Header = ({ hasHero = false, staticHeader = false }: HeaderProps) => {
     : [];
 
   useEffect(() => {
-    const handleScroll = () => {
-      // Trigger when scrolled past half of hero (60vh / 2 = 30vh)
-      const heroHalf = window.innerHeight * 0.3;
-      setIsScrolled(window.scrollY > heroHalf);
-    };
-
-    if (hasHero) {
-      window.addEventListener('scroll', handleScroll);
-      handleScroll(); // Check initial position
-      return () => window.removeEventListener('scroll', handleScroll);
-    } else {
+    if (!hasHero) {
       setIsScrolled(true);
+      return;
     }
-  }, [hasHero]);
+
+    // Use the actual first hero section as the boundary. This keeps the header
+    // transparent anywhere the hero is visible and white once it has fully left
+    // the viewport, including when scrolling back up.
+    const hero = document.querySelector('main > section:first-child');
+    if (!hero) {
+      setIsScrolled(window.scrollY > window.innerHeight * 0.9);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsScrolled(!entry.isIntersecting),
+      { threshold: 0 },
+    );
+    observer.observe(hero);
+
+    return () => observer.disconnect();
+  }, [hasHero, location.pathname]);
 
   const navLinks = [
     { href: '/contact', label: 'Contact' },

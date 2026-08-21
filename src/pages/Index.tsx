@@ -39,26 +39,6 @@ const Index = () => {
 
   return (
     <Layout hasHero>
-      {/* Running announcement line — sits right below the fixed header/logo, at the very top
-          of the page (above the hero), so it's the first thing visible on every screen size
-          instead of easy to miss below a full-height hero. `pt-16 lg:pt-20` matches the header's
-          own height (see Layout.tsx's non-hero padding) so it clears the fixed logo bar. */}
-      {home.marquee.enabled && home.marquee.text && (
-        <div className="pt-16 lg:pt-20 bg-[#C8102E] text-white overflow-hidden">
-          <div className="flex whitespace-nowrap animate-marquee py-2.5">
-            {[0, 1].map((i) => (
-              <span key={i} aria-hidden={i === 1} className="flex shrink-0 items-center">
-                {[...Array(4)].map((_, j) => (
-                  <span key={j} className="mx-8 text-xs tracking-[0.15em] uppercase font-light">
-                    {home.marquee.text}
-                  </span>
-                ))}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Hero Section */}
       <section className="relative h-[90vh] flex items-center">
         <div className="absolute inset-0">
@@ -84,6 +64,23 @@ const Index = () => {
           </div>
         </div>
       </section>
+
+      {/* Running announcement line */}
+      {home.marquee.enabled && home.marquee.text && (
+        <div className="border-y border-[#5F1724] bg-[#7A1F2B] text-white overflow-hidden py-3">
+          <div className="flex whitespace-nowrap animate-marquee">
+            {[0, 1].map((i) => (
+              <span key={i} aria-hidden={i === 1} className="flex shrink-0 items-center">
+                {[...Array(4)].map((_, j) => (
+                  <span key={j} className="mx-8 text-xs tracking-[0.15em] uppercase font-light">
+                    {home.marquee.text}
+                  </span>
+                ))}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Products */}
       <section className="py-20 lg:py-28">

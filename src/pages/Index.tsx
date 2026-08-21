@@ -68,7 +68,7 @@ const Index = () => {
       {/* Running announcement line */}
       {home.marquee.enabled && home.marquee.text && (
         <div className="border-y border-[#5F1724] bg-[#7A1F2B] text-white overflow-hidden py-3">
-          <div className="flex whitespace-nowrap animate-marquee">
+          <div className="flex w-max whitespace-nowrap animate-marquee">
             {[0, 1].map((i) => (
               <span key={i} aria-hidden={i === 1} className="flex shrink-0 items-center">
                 {[...Array(4)].map((_, j) => (

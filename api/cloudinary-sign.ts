@@ -19,13 +19,9 @@ import { createClient } from '@supabase/supabase-js';
 // Params the client will send to Cloudinary that must be covered by the signature. Cloudinary's
 // rule: sign every upload param EXCEPT `file`, `cloud_name`, `api_key`, `resource_type` — sorted by
 // key, joined `k=v` with `&`, then append the API secret and SHA-1 the whole string.
-interface SignedParams {
-  folder: string;
-  timestamp: number;
-}
-
-function sign(params: SignedParams, apiSecret: string): string {
+function sign(params: Record<string, string | number>, apiSecret: string): string {
   const toSign = Object.entries(params)
+    .filter(([, v]) => v !== undefined && v !== '')
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([k, v]) => `${k}=${v}`)
     .join('&');
@@ -33,6 +29,13 @@ function sign(params: SignedParams, apiSecret: string): string {
 }
 
 const ALLOWED_FOLDERS = new Set(['products', 'site']);
+
+// Incoming transformation for image uploads: cap the STORED original at 3200px longest edge and let
+// Cloudinary re-encode at an automatic quality. This replaces the old browser-side canvas compression
+// (which blocked the main thread for minutes on big camera files) — the resize happens on
+// Cloudinary's servers instead, so the browser just does a plain file upload. 3200px still exceeds
+// every viewport this site renders on, including the full-screen viewer's 2560px zoom request.
+const IMAGE_INCOMING_TRANSFORM = 'c_limit,w_3200/q_auto:good';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store');
@@ -74,8 +77,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // --- issue signature ----------------------------------------------------
   const requestedFolder = typeof req.body?.folder === 'string' ? req.body.folder : 'products';
   const folder = ALLOWED_FOLDERS.has(requestedFolder) ? requestedFolder : 'products';
+  const resourceType = req.body?.resourceType === 'video' ? 'video' : 'image';
   const timestamp = Math.floor(Date.now() / 1000);
-  const signature = sign({ folder, timestamp }, apiSecret);
 
-  res.status(200).json({ cloudName, apiKey, timestamp, signature, folder });
+  // Only images get the size-capping incoming transform; videos upload as-is.
+  const transformation = resourceType === 'image' ? IMAGE_INCOMING_TRANSFORM : '';
+  const signature = sign({ folder, timestamp, transformation }, apiSecret);
+
+  res.status(200).json({ cloudName, apiKey, timestamp, signature, folder, transformation });
 }

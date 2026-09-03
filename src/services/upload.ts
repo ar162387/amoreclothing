@@ -1,14 +1,21 @@
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
-// Upper bound on what we'll even send. Cloudinary re-encodes and caps the stored file server-side
-// (see IMAGE_INCOMING_TRANSFORM in api/cloudinary-sign.ts), so there is no browser-side compression
-// step anymore — a 15-25MB camera original is fine, it just gets a slightly longer upload.
-export const MAX_IMAGE_BYTES = 30 * 1024 * 1024; // 30 MB
-export const MAX_VIDEO_BYTES = 25 * 1024 * 1024; // 25 MB
+// Accept basically anything a DSLR/phone produces. Big originals are fine — if they're over
+// Cloudinary's free-plan hard cap they get downscaled in the browser first (see shrinkForUpload).
+export const MAX_IMAGE_BYTES = 60 * 1024 * 1024; // 60 MB
+export const MAX_VIDEO_BYTES = 90 * 1024 * 1024; // 90 MB (Cloudinary free video cap is 100 MB)
 
-// Give a big camera photo on a slow connection room to finish, but don't hang the "Uploading…"
-// spinner forever if the request truly stalls.
-const UPLOAD_TIMEOUT_MS = 90 * 1000;
+// Cloudinary free plan rejects image uploads larger than 10 MB outright. Shrink anything above a
+// safe margin BEFORE uploading; leave everything smaller untouched (no processing = instant).
+const CLOUDINARY_IMAGE_LIMIT = 10 * 1024 * 1024;
+const SHRINK_ABOVE_BYTES = 9 * 1024 * 1024;
+
+// Downscale target — larger than any viewport this site renders on, including the full-screen
+// viewer's 2560px zoom. Cloudinary still re-encodes/re-sizes per delivery on top of this.
+const MAX_IMAGE_DIMENSION = 3200;
+
+const UPLOAD_TIMEOUT_MS = 120 * 1000;
 
 export const ACCEPT_IMAGE = "image/jpeg,image/png,image/webp,image/avif";
 export const ACCEPT_VIDEO = "video/mp4,video/webm";
@@ -16,6 +23,57 @@ export const ACCEPT_MEDIA = `${ACCEPT_IMAGE},${ACCEPT_VIDEO}`;
 
 const IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/avif", "image/gif"]);
 const VIDEO_MIME_TYPES = new Set(["video/mp4", "video/webm"]);
+
+/**
+ * Only runs when a file is close to / over Cloudinary's 10 MB free-plan limit. Loads the image via
+ * an <img> element (browser keeps this efficient) and draws it once into a downscaled canvas, then
+ * re-encodes as JPEG — dropping quality a step at a time until it's safely under the limit.
+ *
+ * NOTE: this runs on the main thread, so the browser tab must stay in the foreground while it works
+ * (backgrounded tabs get their canvas/timer work throttled to a crawl). It's a couple of seconds
+ * for a normal 15–25 MB camera JPEG.
+ */
+async function shrinkForUpload(file: File): Promise<File> {
+  if (file.size <= SHRINK_ABOVE_BYTES || !IMAGE_MIME_TYPES.has(file.type)) return file;
+
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.decoding = "async";
+    img.src = url;
+    await img.decode();
+
+    const longest = Math.max(img.naturalWidth, img.naturalHeight) || MAX_IMAGE_DIMENSION;
+    const scale = Math.min(1, MAX_IMAGE_DIMENSION / longest);
+    const w = Math.max(1, Math.round(img.naturalWidth * scale));
+    const h = Math.max(1, Math.round(img.naturalHeight * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(img, 0, 0, w, h);
+
+    const encode = (quality: number) =>
+      new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+
+    let blob: Blob | null = null;
+    for (const q of [0.9, 0.82, 0.72, 0.6]) {
+      blob = await encode(q);
+      if (blob && blob.size <= CLOUDINARY_IMAGE_LIMIT) break;
+    }
+    if (!blob) return file;
+
+    const name = file.name.replace(/\.\w+$/, "") + ".jpg";
+    return new File([blob], name, { type: "image/jpeg" });
+  } catch (error) {
+    console.warn("shrinkForUpload failed; uploading original", error);
+    return file;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
 
 interface SignResponse {
   cloudName: string;
@@ -27,23 +85,31 @@ interface SignResponse {
 }
 
 /**
- * Uploads one file to Cloudinary using a *signed* upload: the browser asks our own
- * `/api/cloudinary-sign` route (gated on a valid Supabase session) for a short-lived signature,
- * then POSTs the file straight to Cloudinary. No Cloudinary secret and no long-lived unsigned
- * preset ships in the client bundle.
+ * Signed Cloudinary upload: the browser asks our own `/api/cloudinary-sign` route (gated on a valid
+ * Supabase session) for a short-lived signature, then POSTs the file straight to Cloudinary. No
+ * Cloudinary secret and no long-lived unsigned preset ships in the client bundle.
  *
- * There is deliberately NO client-side resize/re-encode — that used to run a full canvas
- * decode+encode on the main thread and could take minutes on a large camera JPEG. Cloudinary
- * applies an incoming transform (`c_limit,w_3200/q_auto:good`) on its own servers, so the stored
- * original is still capped; the browser just does a plain multipart upload.
- *
- * Returns Cloudinary's `secure_url` — the canonical delivery URL with NO transforms baked in
- * (e.g. https://res.cloudinary.com/<cloud>/image/upload/v123/products/abc.jpg). Per-use resizing
- * happens at render time via src/lib/cloudinary.ts.
+ * Returns Cloudinary's `secure_url` — the canonical delivery URL with NO transforms baked in.
+ * Per-use resizing happens at render time via src/lib/cloudinary.ts.
  */
 async function upload(file: File, folder: string): Promise<string> {
   const isVideo = VIDEO_MIME_TYPES.has(file.type);
   const resourceType = isVideo ? "video" : "image";
+
+  let toUpload = file;
+  if (!isVideo && file.size > SHRINK_ABOVE_BYTES) {
+    const dismiss = toast.loading("Optimising image for upload…");
+    try {
+      toUpload = await shrinkForUpload(file);
+    } finally {
+      toast.dismiss(dismiss);
+    }
+    if (toUpload.size > CLOUDINARY_IMAGE_LIMIT) {
+      throw new Error(
+        "Could not get this image under Cloudinary's 10 MB limit. Try exporting it at a lower resolution.",
+      );
+    }
+  }
 
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
@@ -64,7 +130,7 @@ async function upload(file: File, folder: string): Promise<string> {
   const sign = (await signRes.json()) as SignResponse;
 
   const form = new FormData();
-  form.append("file", file);
+  form.append("file", toUpload);
   form.append("api_key", sign.apiKey);
   form.append("timestamp", String(sign.timestamp));
   form.append("signature", sign.signature);
@@ -85,7 +151,7 @@ async function upload(file: File, folder: string): Promise<string> {
     }
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
-      throw new Error("Upload timed out. Check your connection and try again with a smaller file.");
+      throw new Error("Upload timed out. Check your connection and try again.");
     }
     throw error;
   } finally {

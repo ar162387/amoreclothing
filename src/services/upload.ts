@@ -1,19 +1,17 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 // Raw-camera-photo ceiling for what we'll even attempt to read into the browser — the real, much
-// smaller limit that actually reaches S3 is enforced by compressImage() below. 15-25MB straight off a
-// phone/DSLR is normal and shouldn't be rejected outright; it just needs to be downsized first.
+// smaller limit that actually reaches the CDN is enforced by compressImage() below. 15-25MB straight
+// off a phone/DSLR is normal and shouldn't be rejected outright; it just needs to be downsized first.
 export const MAX_IMAGE_BYTES = 30 * 1024 * 1024; // 30 MB
 export const MAX_VIDEO_BYTES = 25 * 1024 * 1024; // 25 MB
 
-// Longest edge for a product/site photo after compression — comfortably larger than any screen this
-// site displays it on, including the full-screen product viewer's ~2.2x pinch-zoom (a 3200px source
-// still has ~1450px of real detail per screen-pixel at max zoom on a standard 1440px-wide display).
-// These photos are professionally shot (paid models, paid photography) — bias toward "you can't tell
-// it was compressed" over squeezing every last KB. Quality 0.92 is the JPEG range generally considered
-// visually indistinguishable from the source on a screen; it still cuts a 15-25MB camera original down
-// to roughly 2-5MB, which is the actual problem (uncapped raw photos tanking page load speed).
+// Longest edge for a product/site photo after compression. Media is served from Cloudinary, which
+// does format (`f_auto`) and quality (`q_auto`) selection per-request on delivery — so this local
+// pass is only about not *storing* a 20MB camera original in the first place (it would burn the
+// Cloudinary storage quota for no benefit). 3200px is comfortably larger than any viewport this
+// site renders on, including the full-screen viewer's ~2.2x pinch-zoom. Quality 0.92 is visually
+// indistinguishable from the source on a screen and cuts a 15-25MB original to roughly 2-5MB.
 const MAX_IMAGE_DIMENSION = 3200;
 const JPEG_QUALITY = 0.92;
 // Below this, a source file is almost certainly already web-sized — skip re-encoding it.
@@ -62,54 +60,70 @@ export const ACCEPT_MEDIA = `${ACCEPT_IMAGE},${ACCEPT_VIDEO}`;
 const IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/avif", "image/gif"]);
 const VIDEO_MIME_TYPES = new Set(["video/mp4", "video/webm"]);
 
-// Fallback extension when the filename has no dot (or the browser stripped
-// it), keyed by mime type so uploads never end up with a garbage key.
-const MIME_EXTENSIONS: Record<string, string> = {
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-    "image/avif": "avif",
-    "image/gif": "gif",
-    "video/mp4": "mp4",
-    "video/webm": "webm",
-};
-
-function resolveExtension(file: File): string {
-    const nameParts = file.name.split(".");
-    const fromName = nameParts.length > 1 ? nameParts.pop() : undefined;
-    if (fromName && fromName.length <= 5) return fromName;
-    return MIME_EXTENSIONS[file.type] || "bin";
+interface SignResponse {
+  cloudName: string;
+  apiKey: string;
+  timestamp: number;
+  signature: string;
+  folder: string;
 }
 
 /**
- * Uploads via the standard Supabase Storage JS SDK (REST API), not the raw S3-protocol endpoint.
- * The S3 endpoint is meant for external S3 tools (rclone, aws-cli) — Supabase's own docs say the
- * REST API/SDK don't use it — and browsers hitting it directly for a PutObject hit a CORS
- * preflight it doesn't answer. The Storage REST API answers CORS correctly and is authorized by
- * the existing "Authenticated Upload/Update/Delete Access" policies on storage.objects, so no
- * long-lived S3 secret key needs to ship in the client bundle either.
+ * Uploads one file to Cloudinary using a *signed* upload: the browser asks our own
+ * `/api/cloudinary-sign` route (which is gated on a valid Supabase session) for a short-lived
+ * signature, then POSTs the file straight to Cloudinary. No Cloudinary secret and no long-lived
+ * unsigned preset ships in the client bundle.
+ *
+ * Returns Cloudinary's `secure_url` — the canonical delivery URL with NO transforms baked in
+ * (e.g. https://res.cloudinary.com/<cloud>/image/upload/v123/products/abc.jpg). Per-use resizing
+ * happens at render time via src/lib/cloudinary.ts, so the same stored URL serves a 96px thumb and
+ * a 2560px zoom.
  */
 async function upload(file: File, folder: string): Promise<string> {
-    try {
-        const uploadFile = IMAGE_MIME_TYPES.has(file.type) ? await compressImage(file) : file;
+  try {
+    const isVideo = VIDEO_MIME_TYPES.has(file.type);
+    const uploadFile = IMAGE_MIME_TYPES.has(file.type) ? await compressImage(file) : file;
 
-        const fileExt = resolveExtension(uploadFile);
-        const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
-        const filePath = `${folder}/${fileName}`;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) throw new Error("You must be signed in to upload media.");
 
-        const { error } = await supabase.storage.from("products").upload(filePath, uploadFile, {
-            contentType: uploadFile.type,
-            cacheControl: "31536000",
-            upsert: false,
-        });
-        if (error) throw error;
-
-        const { data } = supabase.storage.from("products").getPublicUrl(filePath);
-        return data.publicUrl;
-    } catch (error) {
-        console.error("Error uploading file:", error);
-        throw error;
+    const signRes = await fetch("/api/cloudinary-sign", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ folder }),
+    });
+    if (!signRes.ok) {
+      const detail = await signRes.text().catch(() => "");
+      throw new Error(`Could not authorize upload (${signRes.status}). ${detail}`);
     }
+    const { cloudName, apiKey, timestamp, signature, folder: signedFolder } =
+      (await signRes.json()) as SignResponse;
+
+    const form = new FormData();
+    form.append("file", uploadFile);
+    form.append("api_key", apiKey);
+    form.append("timestamp", String(timestamp));
+    form.append("signature", signature);
+    form.append("folder", signedFolder);
+
+    const resourceType = isVideo ? "video" : "image";
+    const cloudRes = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,
+      { method: "POST", body: form },
+    );
+    const cloudJson = (await cloudRes.json()) as { secure_url?: string; error?: { message?: string } };
+    if (!cloudRes.ok || !cloudJson.secure_url) {
+      throw new Error(cloudJson.error?.message ?? `Cloudinary upload failed (${cloudRes.status}).`);
+    }
+    return cloudJson.secure_url;
+  } catch (error) {
+    console.error("Error uploading file:", error);
+    throw error;
+  }
 }
 
 export const uploadService = {

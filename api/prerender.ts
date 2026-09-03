@@ -11,6 +11,7 @@ import {
   buildProductJsonLd,
 } from '../src/lib/seo.js';
 import type { ContactInfo } from '../src/services/siteContent.js';
+import { cloudinaryImageUrl } from '../src/lib/cloudinary.js';
 
 /**
  * Serves real, crawlable HTML to bots that don't execute JavaScript (GPTBot, ClaudeBot,
@@ -139,9 +140,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    const images: string[] = [product.image_front, product.image_back, ...(product.images_other ?? [])].filter(
-      Boolean,
-    );
+    // Bots get Cloudinary-resized variants, never the multi-MB stored original — an un-capped image
+    // in crawlable HTML / the image sitemap is exactly what ran the old backend's egress quota dry.
+    const images: string[] = [product.image_front, product.image_back, ...(product.images_other ?? [])]
+      .filter((src): src is string => Boolean(src))
+      .map((src) => cloudinaryImageUrl(src, { width: 1200 }));
     const url = absoluteUrl(`/product/${id}`);
 
     sendHtml(
@@ -151,8 +154,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         title: `${product.name} | ${SITE_NAME}`,
         description: product.description || `Shop ${product.name} at ${SITE_NAME}.`,
         canonicalPath: `/product/${id}`,
-        image: product.image_front ? absoluteUrl(product.image_front) : undefined,
-        jsonLd: [buildProductJsonLd(product, url)],
+        image: product.image_front ? absoluteUrl(cloudinaryImageUrl(product.image_front, { width: 1200 })) : undefined,
+        jsonLd: [buildProductJsonLd({ ...product, image_front: images[0] ?? null, image_back: images[1] ?? null, images_other: images.slice(2) }, url)],
         bodyHtml: `
 <h1>${escapeHtml(product.name)}</h1>
 <p>PKR ${Number(product.price).toLocaleString()}</p>

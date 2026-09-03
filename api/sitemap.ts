@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import { cloudinaryImageUrl } from '../src/lib/cloudinary.js';
 
 const SITE_URL = 'https://rarstudio.co';
 
@@ -42,9 +43,11 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
       if (error) throw error;
 
       (data ?? []).forEach((product) => {
-        const images = [product.image_front, product.image_back, ...(product.images_other ?? [])].filter(
-          (value): value is string => Boolean(value),
-        );
+        // Cloudinary-resized variants, not the stored originals — Google indexes these directly from
+        // the sitemap, and pointing it at multi-MB files is what drained the old backend's quota.
+        const images = [product.image_front, product.image_back, ...(product.images_other ?? [])]
+          .filter((value): value is string => Boolean(value))
+          .map((src) => cloudinaryImageUrl(src, { width: 1600 }));
         urls.push({
           loc: `${SITE_URL}/product/${product.id}`,
           priority: '0.8',

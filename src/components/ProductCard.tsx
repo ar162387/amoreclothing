@@ -5,7 +5,9 @@ import { formatPrice } from '@/data/store';
 import { Product } from '@/services/products';
 import { useCartStore } from '@/store/cartStore';
 import { getOptimizedImageUrl, buildSrcSet } from '@/lib/productImage';
+import { trackAddToCart, trackSelectItem } from '@/lib/analytics';
 
+const LIST_NAME = 'Storefront Grid';
 const GRID_WIDTHS = [320, 480, 640, 828];
 const GRID_SIZES = '(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw';
 
@@ -30,16 +32,18 @@ const ProductCard = ({ product }: ProductCardProps) => {
     
     // Add with first available size
     addItem(product, product.sizes[0]);
+    trackAddToCart(product, product.sizes[0]);
     openCart();
   };
 
   return (
     <div className="group">
-      <Link 
-        to={`/product/${product.id}`} 
+      <Link
+        to={`/product/${product.id}`}
         className="block"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
+        onClick={() => trackSelectItem(product, LIST_NAME)}
       >
         <div className="relative overflow-hidden bg-secondary aspect-[3/4] mb-4">
           {frontImage && (

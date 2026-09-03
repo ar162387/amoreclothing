@@ -11,6 +11,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { createOrder } from '@/services/checkout';
+import { trackBeginCheckout } from '@/lib/analytics';
 
 interface CheckoutFormData {
   emailOrPhone: string;
@@ -65,6 +66,15 @@ const Checkout = () => {
 
   useEffect(() => {
     setPendingOrder(readPendingOrder());
+  }, []);
+
+  // GA4 funnel: one begin_checkout per visit to this page with a non-empty cart.
+  useEffect(() => {
+    const { items: cartItems } = useCartStore.getState();
+    if (cartItems.length === 0) return;
+    const { totalPrice: cartValue } = getCartTotals(cartItems);
+    trackBeginCheckout(cartItems, cartValue + calcShipping(cartValue));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const {

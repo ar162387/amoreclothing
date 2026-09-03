@@ -18,6 +18,7 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 
 import ScrollToTop from "@/components/ScrollToTop";
+import AnalyticsListener from "@/components/AnalyticsListener";
 
 // Admin-only code (plus recharts and everything else only these pages need) is code-split out of the
 // storefront's initial bundle — public visitors never download it, only whoever actually logs in.
@@ -53,6 +54,7 @@ const App = () => (
         <AuthProvider>
           <SiteContentProvider>
             <ScrollToTop />
+            <AnalyticsListener />
             <CartDrawer />
             <Routes>
               <Route path="/" element={<Index />} />

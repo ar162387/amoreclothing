@@ -8,6 +8,7 @@ import { productsService, Product } from '@/services/products';
 import { useSitePage } from '@/contexts/SiteContentContext';
 import { useSeo } from '@/hooks/use-seo';
 import { absoluteUrl, buildOrganizationJsonLd, buildWebsiteJsonLd, SITE_TITLE } from '@/lib/seo';
+import { trackViewItemList } from '@/lib/analytics';
 
 const Index = () => {
   const home = useSitePage('home');
@@ -30,6 +31,7 @@ const Index = () => {
       const { data } = await productsService.getProducts();
       if (data) {
         setProducts(data);
+        trackViewItemList(data, 'Storefront Grid');
       }
       setLoading(false);
     };

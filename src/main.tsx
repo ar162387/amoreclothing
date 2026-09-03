@@ -1,5 +1,6 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
+import { initAnalytics } from "./lib/analytics";
 
 // Self-hosted fonts (replaces the old render-blocking Google Fonts CSS @import) — only the weights
 // actually used by the design system, see tailwind.config.ts's font-sans/font-serif mappings.
@@ -12,5 +13,7 @@ import "@fontsource/cormorant-garamond/500.css";
 import "@fontsource/cormorant-garamond/600.css";
 
 import "./index.css";
+
+initAnalytics();
 
 createRoot(document.getElementById("root")!).render(<App />);

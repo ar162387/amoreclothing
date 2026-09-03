@@ -4,6 +4,10 @@ import { getOrderStatus, cancelOrder, type OrderStatusResponse } from '@/service
 import { useCartStore } from '@/store/cartStore';
 import { Loader2 } from 'lucide-react';
 import OrderReceipt from '@/components/OrderReceipt';
+import { trackPurchase } from '@/lib/analytics';
+
+// Payment states that represent a genuinely completed sale (card captured, or COD placed).
+const SUCCESSFUL_PAYMENT: readonly string[] = ['paid', 'on_delivery'];
 
 const PENDING_ORDER_KEY = 'amore-pending-order';
 const POLL_INTERVAL_MS = 2000;
@@ -70,6 +74,33 @@ const OrderStatus = ({ mode }: OrderStatusProps) => {
     // On failed/cancelled/expired/awaiting_payment, deliberately leave the cart untouched — a
     // failed or abandoned payment must never cost the customer their bag.
   }, [status, clearCart]);
+
+  // GA4 purchase — fired once per order on the confirmation page, deduped via sessionStorage so a
+  // refresh or the status poller re-rendering doesn't double-count. transaction_id = order token
+  // gives GA its own dedup key too.
+  useEffect(() => {
+    if (mode !== 'confirmation' || !token || !status) return;
+    if (!SUCCESSFUL_PAYMENT.includes(status.paymentStatus)) return;
+    const key = `ga_purchase_${token}`;
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, '1');
+    } catch {
+      /* private mode — worst case is a possible double count, acceptable */
+    }
+    trackPurchase({
+      transactionId: token,
+      value: status.total,
+      shipping: status.shipping,
+      currency: status.currency,
+      items: status.items.map((it) => ({
+        name: it.name,
+        size: it.size,
+        quantity: it.quantity,
+        price: it.price,
+      })),
+    });
+  }, [mode, token, status]);
 
   if (notFound) {
     return (

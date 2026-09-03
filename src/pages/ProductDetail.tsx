@@ -15,6 +15,7 @@ import { useSeo } from '@/hooks/use-seo';
 import { absoluteUrl, buildProductJsonLd, SITE_NAME, SITE_TITLE, SITE_DESCRIPTION } from '@/lib/seo';
 import { getOptimizedImageUrl, buildSrcSet } from '@/lib/productImage';
 import { buildWhatsAppCheckoutUrl } from '@/lib/whatsappCheckout';
+import { trackViewItem, trackAddToCart } from '@/lib/analytics';
 
 const GALLERY_WIDTHS = [480, 640, 828, 1080, 1280, 1600];
 const GALLERY_SIZES = '(min-width: 1024px) 50vw, 100vw';
@@ -65,6 +66,7 @@ const ProductDetail = () => {
         console.error(error);
       } else {
         setProduct(data);
+        if (data) trackViewItem(data);
         // Default to whatever's already in the bag for this product (so re-opening the page
         // reflects the real cart state, not a blank picker), otherwise the first available size —
         // this must never leave the picker unselected, since that's what caused the confusion of
@@ -145,6 +147,7 @@ const ProductDetail = () => {
     for (let i = 0; i < quantity; i++) {
       addItem(product, size);
     }
+    trackAddToCart(product, size, quantity);
     toast.success(`${product.name} added to cart`);
     openCart();
   };

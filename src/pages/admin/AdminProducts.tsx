@@ -452,7 +452,8 @@ const ProductForm = ({ product, collections, fabricCareOptions, onSave, onCancel
       await onSave(finalData, product?.id);
     } catch (error) {
       console.error("Upload error", error);
-      toast.error("Failed to upload images. Product not saved.");
+      const reason = error instanceof Error ? error.message : "";
+      toast.error(reason ? `Upload failed: ${reason}` : "Failed to upload images. Product not saved.");
     } finally {
       setUploading(false);
     }

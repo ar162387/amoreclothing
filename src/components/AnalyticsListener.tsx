@@ -10,10 +10,7 @@ export default function AnalyticsListener() {
   const { pathname, search } = useLocation();
 
   useEffect(() => {
-    // Defer one tick so the page's useSeo() effect has updated document.title first — otherwise
-    // the pageview carries the stale (previous route's) title.
-    const t = setTimeout(() => trackPageView(pathname + search), 60);
-    return () => clearTimeout(t);
+    trackPageView(pathname + search);
   }, [pathname, search]);
 
   return null;

@@ -24,18 +24,9 @@ export const ACCEPT_MEDIA = `${ACCEPT_IMAGE},${ACCEPT_VIDEO}`;
 const IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/avif", "image/gif"]);
 const VIDEO_MIME_TYPES = new Set(["video/mp4", "video/webm"]);
 
-/**
- * Only runs when a file is close to / over Cloudinary's 10 MB free-plan limit. Loads the image via
- * an <img> element (browser keeps this efficient) and draws it once into a downscaled canvas, then
- * re-encodes as JPEG — dropping quality a step at a time until it's safely under the limit.
- *
- * NOTE: this runs on the main thread, so the browser tab must stay in the foreground while it works
- * (backgrounded tabs get their canvas/timer work throttled to a crawl). It's a couple of seconds
- * for a normal 15–25 MB camera JPEG.
- */
-async function shrinkForUpload(file: File): Promise<File> {
-  if (file.size <= SHRINK_ABOVE_BYTES || !IMAGE_MIME_TYPES.has(file.type)) return file;
-
+/** Same downscale+re-encode as the worker, but on the main thread — fallback for browsers without
+ * OffscreenCanvas / module workers. */
+async function shrinkOnMainThread(file: File): Promise<File> {
   const url = URL.createObjectURL(file);
   try {
     const img = new Image();
@@ -55,23 +46,53 @@ async function shrinkForUpload(file: File): Promise<File> {
     if (!ctx) return file;
     ctx.drawImage(img, 0, 0, w, h);
 
-    const encode = (quality: number) =>
-      new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
-
     let blob: Blob | null = null;
     for (const q of [0.9, 0.82, 0.72, 0.6]) {
-      blob = await encode(q);
+      blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", q));
       if (blob && blob.size <= CLOUDINARY_IMAGE_LIMIT) break;
     }
     if (!blob) return file;
+    return new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
 
-    const name = file.name.replace(/\.\w+$/, "") + ".jpg";
-    return new File([blob], name, { type: "image/jpeg" });
+/**
+ * Only runs when a file is close to / over Cloudinary's 10 MB free-plan limit. Downscales to
+ * <=3200px and re-encodes as JPEG, stepping quality down until it's under the limit. Done in a Web
+ * Worker (see workers/imageResize.worker.ts) so it stays fast even if the tab is backgrounded;
+ * falls back to a main-thread pass if workers/OffscreenCanvas aren't available.
+ */
+async function shrinkForUpload(file: File): Promise<File> {
+  if (file.size <= SHRINK_ABOVE_BYTES || !IMAGE_MIME_TYPES.has(file.type)) return file;
+
+  try {
+    if (typeof Worker !== "undefined" && typeof OffscreenCanvas !== "undefined") {
+      const worker = new Worker(new URL("../workers/imageResize.worker.ts", import.meta.url), {
+        type: "module",
+      });
+      try {
+        const blob = await new Promise<Blob>((resolve, reject) => {
+          worker.onmessage = (e: MessageEvent<{ ok: boolean; blob?: Blob; error?: string }>) =>
+            e.data.ok && e.data.blob ? resolve(e.data.blob) : reject(new Error(e.data.error));
+          worker.onerror = (e) => reject(new Error(e.message));
+          worker.postMessage({ file, maxDim: MAX_IMAGE_DIMENSION, limit: CLOUDINARY_IMAGE_LIMIT });
+        });
+        return new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
+      } finally {
+        worker.terminate();
+      }
+    }
+  } catch (error) {
+    console.warn("worker shrink failed, falling back to main thread", error);
+  }
+
+  try {
+    return await shrinkOnMainThread(file);
   } catch (error) {
     console.warn("shrinkForUpload failed; uploading original", error);
     return file;
-  } finally {
-    URL.revokeObjectURL(url);
   }
 }
 

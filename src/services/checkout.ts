@@ -5,7 +5,10 @@
  */
 
 export interface CheckoutCustomer {
-  emailOrPhone: string;
+  /** Optional — customers aren't required to give an email, only a phone number. */
+  email?: string;
+  /** E.164-formatted (e.g. "+923001056929"), validated client-side by country before submit. */
+  phone: string;
   firstName: string;
   lastName: string;
   address: string;

@@ -12,9 +12,15 @@ import { calcTotals, toMinorUnits } from '../../src/shared/pricing.js';
  * re-pricing everything itself), and it recomputes every price from the `products` table.
  */
 
+// E.164: "+" followed by 6-15 digits, first digit non-zero. Client formats to this via
+// libphonenumber-js before submit; re-checked here since the client is never trusted.
+const E164_PHONE = /^\+[1-9]\d{6,14}$/;
+
 const bodySchema = z.object({
   customer: z.object({
-    emailOrPhone: z.string().min(1).max(200),
+    // Optional — the checkout form only requires a phone number.
+    email: z.string().trim().min(1).max(200).email().optional(),
+    phone: z.string().regex(E164_PHONE, 'Invalid phone number'),
     firstName: z.string().min(1).max(100),
     lastName: z.string().min(1).max(100),
     address: z.string().min(1).max(300),
@@ -147,7 +153,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { data: created, error: createError } = await supabase.rpc('create_order_with_items', {
       p_order: {
-        customer_email_or_phone: customer.emailOrPhone,
+        customer_email: customer.email ?? '',
+        customer_phone: customer.phone,
         customer_first_name: customer.firstName,
         customer_last_name: customer.lastName,
         customer_address: customer.address,

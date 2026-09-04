@@ -49,7 +49,8 @@ const AdminOrders = () => {
     const matchesSearch =
       order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       fullName.includes(searchQuery.toLowerCase()) ||
-      order.customer_email_or_phone.toLowerCase().includes(searchQuery.toLowerCase());
+      order.customer_phone.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (order.customer_email ?? '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
     const matchesPayment = paymentFilter === 'all' || order.payment_status === paymentFilter;
     return matchesSearch && matchesStatus && matchesPayment;
@@ -227,7 +228,10 @@ const AdminOrders = () => {
                       <p className="text-sm font-medium">
                         {order.customer_first_name} {order.customer_last_name}
                       </p>
-                      <p className="text-xs text-muted-foreground">{order.customer_email_or_phone}</p>
+                      <p className="text-xs text-muted-foreground">{order.customer_phone}</p>
+                      {order.customer_email && (
+                        <p className="text-xs text-muted-foreground">{order.customer_email}</p>
+                      )}
                     </div>
                   </td>
                   <td className="p-4 text-sm text-muted-foreground">
@@ -315,7 +319,10 @@ const AdminOrders = () => {
                   <p className="text-sm font-medium">
                     {selectedOrder.customer_first_name} {selectedOrder.customer_last_name}
                   </p>
-                  <p className="text-sm text-muted-foreground">{selectedOrder.customer_email_or_phone}</p>
+                  <p className="text-sm text-muted-foreground">{selectedOrder.customer_phone}</p>
+                  {selectedOrder.customer_email && (
+                    <p className="text-sm text-muted-foreground">{selectedOrder.customer_email}</p>
+                  )}
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">

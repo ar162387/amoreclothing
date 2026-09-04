@@ -23,7 +23,9 @@ export interface OrderItem {
 
 export interface Order {
   id: string;
-  customer_email_or_phone: string;
+  /** Optional — the checkout form only requires a phone number. */
+  customer_email: string | null;
+  customer_phone: string;
   customer_first_name: string;
   customer_last_name: string;
   customer_address: string;

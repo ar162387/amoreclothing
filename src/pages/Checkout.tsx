@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { ChevronLeft } from 'lucide-react';
+import { isValidPhoneNumber, parsePhoneNumberFromString, type CountryCode } from 'libphonenumber-js';
 import { useCartStore, getCartTotals } from '@/store/cartStore';
 import { formatPrice } from '@/data/store';
 import { calcShipping } from '@/shared/pricing';
@@ -9,18 +10,32 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Button } from '@/components/ui/button';
+import { PhoneInput } from '@/components/checkout/PhoneInput';
+import { DEFAULT_PHONE_COUNTRY } from '@/lib/phoneCountries';
 import { toast } from 'sonner';
 import { createOrder } from '@/services/checkout';
 import { trackBeginCheckout } from '@/lib/analytics';
 
 interface CheckoutFormData {
-  emailOrPhone: string;
+  email?: string;
   firstName: string;
   lastName: string;
   address: string;
   apartment?: string;
   city: string;
   paymentMethod: 'cash' | 'card';
+}
+
+/** Loose but real email check — good enough to catch typos without rejecting valid addresses. */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validatePhone(country: CountryCode, number: string): string | null {
+  const trimmed = number.trim();
+  if (!trimmed) return 'Phone number is required';
+  if (!isValidPhoneNumber(trimmed, country)) {
+    return 'Enter a valid phone number for the selected country';
+  }
+  return null;
 }
 
 const PENDING_ORDER_KEY = 'amore-pending-order';
@@ -54,6 +69,10 @@ const Checkout = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [pendingOrder, setPendingOrder] = useState<PendingOrderMarker | null>(null);
+  const [phoneCountry, setPhoneCountry] = useState<CountryCode>(DEFAULT_PHONE_COUNTRY);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [phoneTouched, setPhoneTouched] = useState(false);
 
   // Stable per-visit idempotency key. Regenerated only when there's no unresolved pending order
   // to resume — this is what makes a reload/back-navigation dedupe server-side instead of
@@ -99,12 +118,29 @@ const Checkout = () => {
       return;
     }
 
+    const phoneValidationError = validatePhone(phoneCountry, phoneNumber);
+    if (phoneValidationError) {
+      setPhoneError(phoneValidationError);
+      setPhoneTouched(true);
+      toast.error(phoneValidationError);
+      return;
+    }
+    const parsedPhone = parsePhoneNumberFromString(phoneNumber.trim(), phoneCountry);
+    const e164Phone = parsedPhone?.number;
+    if (!e164Phone) {
+      setPhoneError('Enter a valid phone number for the selected country');
+      setPhoneTouched(true);
+      toast.error('Enter a valid phone number for the selected country');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       const result = await createOrder({
         customer: {
-          emailOrPhone: data.emailOrPhone,
+          email: data.email?.trim() || undefined,
+          phone: e164Phone,
           firstName: data.firstName,
           lastName: data.lastName,
           address: data.address,
@@ -251,19 +287,47 @@ const Checkout = () => {
                 <h2 className="text-lg font-medium mb-4">Contact Information</h2>
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="emailOrPhone">Email or Phone *</Label>
+                    <Label htmlFor="email">Email</Label>
                     <Input
-                      id="emailOrPhone"
-                      {...register('emailOrPhone', {
-                        required: 'Email or phone is required',
+                      id="email"
+                      type="email"
+                      {...register('email', {
+                        pattern: {
+                          value: EMAIL_PATTERN,
+                          message: 'Enter a valid email address',
+                        },
                       })}
-                      placeholder="your@email.com or +92 300 1056929"
+                      placeholder="your@email.com"
                       className="mt-2"
                     />
-                    {errors.emailOrPhone && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {errors.emailOrPhone.message}
-                      </p>
+                    {errors.email && (
+                      <p className="text-sm text-red-500 mt-1">{errors.email.message}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="phoneNumber">Phone Number *</Label>
+                    <PhoneInput
+                      id="phoneNumber"
+                      country={phoneCountry}
+                      number={phoneNumber}
+                      onCountryChange={(country) => {
+                        setPhoneCountry(country);
+                        if (phoneTouched) setPhoneError(validatePhone(country, phoneNumber));
+                      }}
+                      onNumberChange={(value) => {
+                        setPhoneNumber(value);
+                        if (phoneTouched) setPhoneError(validatePhone(phoneCountry, value));
+                      }}
+                      onBlur={() => {
+                        setPhoneTouched(true);
+                        setPhoneError(validatePhone(phoneCountry, phoneNumber));
+                      }}
+                      placeholder="300 1056929"
+                      invalid={Boolean(phoneTouched && phoneError)}
+                    />
+                    {phoneTouched && phoneError && (
+                      <p className="text-sm text-red-500 mt-1">{phoneError}</p>
                     )}
                   </div>
                 </div>

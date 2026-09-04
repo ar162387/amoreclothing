@@ -19,7 +19,7 @@ function resendClient(): Resend | null {
   return cachedResend;
 }
 
-const NOTIFY_RECIPIENTS = ['rarstudio2026@gmail.com', 'i.waqarahmed25@gmail.com'];
+const NOTIFY_RECIPIENTS = ['portfoliowaqar@gmail.com', 'i.waqarahmed25@gmail.com'];
 
 export interface OrderEmailItem {
   name: string;
@@ -33,7 +33,9 @@ export interface OrderEmailArgs {
   publicToken: string;
   paymentMethod: 'cash' | 'card';
   customer: {
-    emailOrPhone: string;
+    /** Optional — the checkout form only requires a phone number. */
+    email?: string;
+    phone: string;
     firstName: string;
     lastName: string;
     address: string;
@@ -78,7 +80,8 @@ function buildHtml(args: OrderEmailArgs): string {
       <h3 style="font-weight:600;font-size:14px;text-transform:uppercase;letter-spacing:0.05em;">Shipping Details</h3>
       <table style="width:100%;font-size:14px;margin-bottom:16px;">
         <tr><td style="color:#666;width:120px;">Name</td><td>${escapeHtml(args.customer.firstName)} ${escapeHtml(args.customer.lastName)}</td></tr>
-        <tr><td style="color:#666;">Email/Phone</td><td>${escapeHtml(args.customer.emailOrPhone)}</td></tr>
+        <tr><td style="color:#666;">Phone</td><td>${escapeHtml(args.customer.phone)}</td></tr>
+        ${args.customer.email ? `<tr><td style="color:#666;">Email</td><td>${escapeHtml(args.customer.email)}</td></tr>` : ''}
         <tr><td style="color:#666;">Address</td><td>${escapeHtml(addressLine)}</td></tr>
         <tr><td style="color:#666;">City</td><td>${escapeHtml(args.customer.city)}</td></tr>
       </table>

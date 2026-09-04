@@ -57,7 +57,7 @@ export const SITE_CONTENT_DEFAULTS: SiteContent = {
             media: { type: "image", url: contactHero, alt: "Contact RAR Studio" },
         },
         info: {
-            email: "rarstudio2026@gmail.com",
+            email: "portfoliowaqar@gmail.com",
             phone: "+92 300 1056929",
             instagram_handle: "@_rar.studio",
             instagram_url: "https://www.instagram.com/_rar.studio?igsh=anVxZHNjeDNwbjhr",

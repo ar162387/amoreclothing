@@ -45,7 +45,7 @@ Allow: /
 User-agent: facebookexternalhit
 Allow: /
 
-# SEO-audit / scraper crawlers — no traffic value, and they pull every image on every page
+# Selected third-party scrapers that pull every image on every page
 User-agent: AhrefsBot
 Disallow: /
 
@@ -65,7 +65,7 @@ User-agent: PetalBot
 Disallow: /
 
 User-agent: DataForSeoBot
-Disallow: /
+Allow: /
 
 # Everything else
 User-agent: *

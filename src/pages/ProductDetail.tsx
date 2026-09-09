@@ -12,9 +12,10 @@ import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/com
 import Autoplay from 'embla-carousel-autoplay';
 import { useCartStore, getCartTotals } from '@/store/cartStore';
 import { useSeo } from '@/hooks/use-seo';
-import { absoluteUrl, buildProductJsonLd, SITE_NAME, SITE_TITLE, SITE_DESCRIPTION } from '@/lib/seo';
+import { absoluteUrl, buildProductJsonLd, buildProductMetaDescription, SITE_NAME, SITE_TITLE, SITE_DESCRIPTION } from '@/lib/seo';
 import { getOptimizedImageUrl, buildSrcSet } from '@/lib/productImage';
 import { buildWhatsAppCheckoutUrl } from '@/lib/whatsappCheckout';
+import { getProductHighlights } from '@/lib/catalogContent';
 import { trackViewItem, trackAddToCart } from '@/lib/analytics';
 
 const GALLERY_WIDTHS = [480, 640, 828, 1080, 1280, 1600];
@@ -50,7 +51,7 @@ const ProductDetail = () => {
   // falls back to generic brand copy until the product has loaded.
   useSeo({
     title: product ? `${product.name} | ${SITE_NAME}` : SITE_TITLE,
-    description: product?.description || SITE_DESCRIPTION,
+    description: product ? buildProductMetaDescription(product) : SITE_DESCRIPTION,
     canonicalPath: id ? `/product/${id}` : '/',
     image: product?.image_front ? absoluteUrl(product.image_front) : undefined,
     jsonLd: product && id ? buildProductJsonLd(product, absoluteUrl(`/product/${id}`)) : undefined,
@@ -256,6 +257,10 @@ const ProductDetail = () => {
           </div>
         )}
 
+        <p className="px-6 pb-6 text-sm font-light leading-relaxed text-muted-foreground">
+          {getProductHighlights(product)}
+        </p>
+
         {/* Fabric / Care — admin-editable per product, shown right below the description */}
         {product.fabric_care && (
           <div className="px-6 pb-6">
@@ -408,6 +413,10 @@ const ProductDetail = () => {
                 {product.description}
               </p>
             )}
+
+            <p className="text-sm font-light leading-relaxed text-muted-foreground mb-8">
+              {getProductHighlights(product)}
+            </p>
 
             {/* Fabric / Care — admin-editable per product, shown right below the description */}
             {product.fabric_care && (

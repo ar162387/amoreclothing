@@ -16,12 +16,12 @@ export const config = {
 // Search engines, AI answer engines / GEO crawlers, and social share-preview bots we WANT to serve
 // real HTML to — none execute JavaScript, so without this they see only a bare page shell.
 const BOT_UA_PATTERN =
-  /googlebot|bingbot|applebot|duckduckbot|yandexbot|baiduspider|facebookexternalhit|twitterbot|linkedinbot|whatsapp|telegrambot|discordbot|embedly|quora link preview|pinterest|redditbot|slackbot|gptbot|chatgpt-user|oai-searchbot|claudebot|anthropic-ai|perplexitybot|perplexity-user|google-extended|ccbot/i;
+  /googlebot|bingbot|applebot|duckduckbot|yandexbot|baiduspider|facebookexternalhit|twitterbot|linkedinbot|whatsapp|telegrambot|discordbot|embedly|quora link preview|pinterest|redditbot|slackbot|gptbot|chatgpt-user|oai-searchbot|claudebot|anthropic-ai|perplexitybot|perplexity-user|google-extended|ccbot|dataforseobot/i;
 
 // SEO-audit / data-mining crawlers that hammer every image URL and give us nothing back. They get
 // the plain SPA shell (and are Disallowed in robots.txt) so they never pull a single media byte.
 const BLOCKED_BOT_UA_PATTERN =
-  /ahrefsbot|semrushbot|mj12bot|dotbot|bytespider|diffbot|petalbot|dataforseobot|blexbot|serpstatbot|megaindex/i;
+  /ahrefsbot|semrushbot|mj12bot|dotbot|bytespider|diffbot|petalbot|blexbot|serpstatbot|megaindex/i;
 
 export default function middleware(req: Request) {
   const userAgent = req.headers.get('user-agent') || '';

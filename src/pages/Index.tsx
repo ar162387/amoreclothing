@@ -7,7 +7,8 @@ import SiteMediaRotator from '@/components/SiteMediaRotator';
 import { productsService, Product } from '@/services/products';
 import { useSitePage } from '@/contexts/SiteContentContext';
 import { useSeo } from '@/hooks/use-seo';
-import { absoluteUrl, buildOrganizationJsonLd, buildWebsiteJsonLd, SITE_TITLE } from '@/lib/seo';
+import { absoluteUrl, buildOrganizationJsonLd, buildWebsiteJsonLd, SITE_DESCRIPTION, SITE_TITLE } from '@/lib/seo';
+import { buildShoppingSections, COLLECTION_INTRO, COLLECTION_TITLE, getProductSummary, STYLING_BODY, STYLING_TITLE } from '@/lib/catalogContent';
 import { trackViewItemList } from '@/lib/analytics';
 
 const Index = () => {
@@ -19,7 +20,7 @@ const Index = () => {
   const heroImage = home.hero.media.find((item) => item.type === 'image');
   useSeo({
     title: SITE_TITLE,
-    description: home.hero.body,
+    description: SITE_DESCRIPTION,
     canonicalPath: '/',
     image: heroImage ? absoluteUrl(heroImage.url) : undefined,
     jsonLd: [buildOrganizationJsonLd(contact.info), buildWebsiteJsonLd()],
@@ -92,9 +93,11 @@ const Index = () => {
               {home.products.eyebrow}
             </p>
             <h2 className="font-serif text-3xl lg:text-4xl font-light">
-              {home.products.title}
+              {COLLECTION_TITLE}
             </h2>
           </div>
+
+          <p className="max-w-2xl text-sm font-light leading-relaxed text-muted-foreground mb-10">{COLLECTION_INTRO}</p>
 
           {loading ? (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
@@ -111,6 +114,33 @@ const Index = () => {
           )}
         </div>
       </section>
+
+      {!loading && products.some((product) => product.available) && (
+        <section className="border-t border-border py-16 lg:py-20">
+          <div className="container mx-auto px-6">
+            <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-3">
+              {buildShoppingSections(products).map((section) => (
+                <div key={section.id} id={section.id} className="scroll-mt-28">
+                  <h2 className="font-serif text-2xl font-light mb-4">{section.title}</h2>
+                  <p className="text-sm font-light leading-relaxed text-muted-foreground mb-6">{section.body}</p>
+                  <ul className="space-y-5">
+                    {section.products.map((product) => (
+                      <li key={product.id}>
+                        <Link to={`/product/${product.id}`} className="text-sm underline underline-offset-4 hover:text-muted-foreground">{product.name}</Link>
+                        <p className="text-xs leading-relaxed text-muted-foreground mt-2">{getProductSummary(product)}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+            <div className="max-w-2xl mt-14">
+              <h2 className="font-serif text-2xl font-light mb-4">{STYLING_TITLE}</h2>
+              <p className="text-sm font-light leading-relaxed text-muted-foreground">{STYLING_BODY}</p>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Category Tiles */}
       <section className="py-20 lg:py-28 bg-secondary">

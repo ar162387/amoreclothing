@@ -9,8 +9,11 @@ import {
   buildWebsiteJsonLd,
   buildContactPageJsonLd,
   buildProductJsonLd,
+  buildProductMetaDescription,
 } from '../src/lib/seo.js';
 import type { ContactInfo } from '../src/services/siteContent.js';
+import { buildShoppingSections, COLLECTION_TITLE, COLLECTION_INTRO, getProductSummary, getProductHighlights, STYLING_TITLE, STYLING_BODY, type CatalogProduct } from '../src/lib/catalogContent.js';
+import type { SizeGuide } from '../src/services/products.js';
 import { cloudinaryImageUrl } from '../src/lib/cloudinary.js';
 
 /**
@@ -64,6 +67,15 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
+function renderSizeGuide(heads: SizeGuide, sizes: string[]): string {
+  if (!sizes.length) return '';
+  const tables = heads.filter((head) => head.label && head.rows.length).map((head) => `
+<h3>${escapeHtml(head.label)}</h3>
+<table><thead><tr><th scope="col">Measurement</th>${sizes.map((size) => `<th scope="col">${escapeHtml(size)}</th>`).join('')}</tr></thead>
+<tbody>${head.rows.map((row) => `<tr><th scope="row">${escapeHtml(row.label)}</th>${sizes.map((size) => `<td>${escapeHtml(row.values[size] || '—')}</td>`).join('')}</tr>`).join('')}</tbody></table>`).join('');
+  return tables ? `<h2>Size Guide</h2><p>Measurements are garment measurements, not body measurements.</p>${tables}` : '';
+}
+
 interface PageOptions {
   title: string;
   description: string;
@@ -76,7 +88,7 @@ interface PageOptions {
 function renderPage({ title, description, canonicalPath, image, jsonLd, bodyHtml }: PageOptions): string {
   const canonical = absoluteUrl(canonicalPath);
   const jsonLdScripts = jsonLd
-    .map((data) => `<script type="application/ld+json">${JSON.stringify(data)}</script>`)
+    .map((data) => `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`)
     .join('\n');
 
   return `<!doctype html>
@@ -86,6 +98,9 @@ function renderPage({ title, description, canonicalPath, image, jsonLd, bodyHtml
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>${escapeHtml(title)}</title>
 <meta name="description" content="${escapeHtml(description)}" />
+<link rel="icon" href="/favicon.ico" />
+<link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <link rel="canonical" href="${canonical}" />
 <meta property="og:title" content="${escapeHtml(title)}" />
 <meta property="og:description" content="${escapeHtml(description)}" />
@@ -122,7 +137,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (productMatch) {
     const id = productMatch[1];
     const { data: product, error } = supabase
-      ? await supabase.from('products').select('*, collections(name)').eq('id', id).single()
+      ? await supabase.from('products').select('*, collections(name), fabric_care(title, body)').eq('id', id).single()
       : { data: null, error: new Error('Supabase not configured') };
 
     if (error || !product) {
@@ -152,7 +167,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       200,
       renderPage({
         title: `${product.name} | ${SITE_NAME}`,
-        description: product.description || `Shop ${product.name} at ${SITE_NAME}.`,
+        description: buildProductMetaDescription(product),
         canonicalPath: `/product/${id}`,
         image: product.image_front ? absoluteUrl(cloudinaryImageUrl(product.image_front, { width: 1200 })) : undefined,
         jsonLd: [buildProductJsonLd({ ...product, image_front: images[0] ?? null, image_back: images[1] ?? null, images_other: images.slice(2) }, url)],
@@ -160,6 +175,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 <h1>${escapeHtml(product.name)}</h1>
 <p>PKR ${Number(product.price).toLocaleString()}</p>
 ${product.description ? `<p>${escapeHtml(product.description)}</p>\n` : ''}<p>${product.available ? 'In stock' : 'Sold out'}</p>
+<p>${escapeHtml(getProductHighlights(product))}</p>
+${product.fabric_care?.body ? `<h2>Fabric / Care</h2><p style="white-space:pre-line">${escapeHtml(product.fabric_care.body)}</p>` : ''}
+${renderSizeGuide(product.size_guide ?? [], product.sizes ?? [])}
 ${product.collections?.name ? `<p>Collection: ${escapeHtml(product.collections.name)}</p>\n` : ''}${images
           .map((src, i) => `<img src="${escapeHtml(src)}" alt="${escapeHtml(product.name)} - view ${i + 1}" />`)
           .join('\n')}
@@ -242,6 +260,7 @@ ${body
   // --- Home page ---------------------------------------------------------
   let hero = HOME_FALLBACK;
   let contactInfo = CONTACT_FALLBACK;
+  let productLinks: CatalogProduct[] = [];
 
   if (supabase) {
     const { data } = await supabase.from('site_content').select('page, content');
@@ -260,6 +279,13 @@ ${body
       };
     }
     if (contactContent?.info) contactInfo = { ...CONTACT_FALLBACK, ...contactContent.info };
+
+    const { data: products } = await supabase
+      .from('products')
+      .select('id, name, description, available, size_guide, fabric_care(title, body)')
+      .eq('available', true)
+      .order('created_at', { ascending: false });
+    productLinks = (products ?? []) as unknown as CatalogProduct[];
   }
 
   sendHtml(
@@ -267,12 +293,22 @@ ${body
     200,
     renderPage({
       title: SITE_TITLE,
-      description: hero.body || SITE_DESCRIPTION,
+      description: SITE_DESCRIPTION,
       canonicalPath: '/',
       jsonLd: [buildOrganizationJsonLd(contactInfo), buildWebsiteJsonLd()],
       bodyHtml: `
 <h1>${escapeHtml(hero.title)}</h1>
 <p>${escapeHtml(hero.body)}</p>
+<h2>${escapeHtml(COLLECTION_TITLE)}</h2>
+<p>${escapeHtml(COLLECTION_INTRO)}</p>
+<ul>
+${productLinks.map((product) => `<li><a href="/product/${escapeHtml(product.id)}">${escapeHtml(product.name)}</a></li>`).join('\n')}
+</ul>
+${buildShoppingSections(productLinks).map((section) => `<section id="${section.id}">
+<h2>${escapeHtml(section.title)}</h2><p>${escapeHtml(section.body)}</p>
+<ul>${section.products.map((product) => `<li><a href="/product/${escapeHtml(product.id)}">${escapeHtml(product.name)}</a><p>${escapeHtml(getProductSummary(product))}</p></li>`).join('')}</ul>
+</section>`).join('')}
+${productLinks.length ? `<h2>${escapeHtml(STYLING_TITLE)}</h2><p>${escapeHtml(STYLING_BODY)}</p>` : ''}
 <h2>Shop by Style</h2>
 <ul>
 ${hero.tiles.map((tile) => `<li>${escapeHtml(tile.eyebrow)}: ${escapeHtml(tile.title)}</li>`).join('\n')}

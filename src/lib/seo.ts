@@ -1,3 +1,4 @@
+import { getProductCategory, getProductCompositions, getMaterialLabel } from './catalogContent.js';
 import type { Product } from "../services/products.js";
 import type { ContactInfo } from "../services/siteContent.js";
 
@@ -10,10 +11,10 @@ import type { ContactInfo } from "../services/siteContent.js";
 
 export const SITE_URL = "https://rarstudio.co";
 export const SITE_NAME = "RAR Studio";
-export const SITE_TAGLINE = "Western Luxury, Made in Pakistan";
+export const SITE_TAGLINE = "Women's Co-ord Sets in Pakistan";
 export const SITE_TITLE = `${SITE_NAME} — ${SITE_TAGLINE}`;
 export const SITE_DESCRIPTION =
-  "RAR Studio brings western luxury fashion, made in Pakistan — timeless pieces crafted for the modern woman.";
+  "Shop women's western co-ord sets in Pakistan. Explore matching skirt and trouser sets with fabric and care details. Designed and made locally by RAR Studio.";
 /** Hardcoded to match formatPrice() in src/data/store.ts — there's no per-product currency field. */
 export const CURRENCY = "PKR";
 
@@ -92,6 +93,19 @@ export function buildWebsiteJsonLd() {
   };
 }
 
+export function buildProductMetaDescription(product: Pick<Product, "name" | "description"> & Partial<Pick<Product, "id" | "available" | "fabric_care" | "size_guide">>): string {
+  const firstSentence = product.description?.replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s/)[0];
+  const catalogProduct = { ...product, id: product.id ?? '', available: product.available ?? false };
+  const category = getMaterialLabel(catalogProduct) || getProductCategory(catalogProduct);
+  const detail = category ? `${product.name}: ${category.toLowerCase()}.` : firstSentence || `Shop ${product.name}.`;
+  const suffix = " Made in Pakistan by RAR Studio.";
+  const maxDetailLength = 154 - suffix.length;
+  const clipped = detail.length > maxDetailLength
+    ? detail.slice(0, maxDetailLength).replace(/\s+\S*$/, "")
+    : detail;
+  return `${clipped.trim().replace(/[.,:;\-–—]+$/, "")}.${suffix}`;
+}
+
 export function buildContactPageJsonLd(info: ContactInfo) {
   return {
     "@context": "https://schema.org",
@@ -108,7 +122,7 @@ export function buildContactPageJsonLd(info: ContactInfo) {
 export type ProductJsonLdInput = Pick<
   Product,
   "id" | "name" | "price" | "description" | "image_front" | "image_back" | "images_other" | "available"
-> & { collections?: { name: string } | null };
+> & Partial<Pick<Product, "fabric_care" | "size_guide" | "sizes">> & { collections?: { name: string } | null };
 
 export function buildProductJsonLd(product: ProductJsonLdInput, url: string) {
   const images = [product.image_front, product.image_back, ...(product.images_other ?? [])].filter(
@@ -121,6 +135,8 @@ export function buildProductJsonLd(product: ProductJsonLdInput, url: string) {
     name: product.name,
     ...(product.description ? { description: product.description } : {}),
     ...(images.length ? { image: images } : {}),
+    ...(getProductCompositions(product).length ? { material: getProductCompositions(product) } : {}),
+    ...(product.sizes?.length ? { size: product.sizes } : {}),
     sku: product.id,
     brand: { "@type": "Brand", name: SITE_NAME },
     ...(product.collections?.name ? { category: product.collections.name } : {}),

@@ -25,10 +25,12 @@ declare global {
   }
 }
 
-// gtag.js reads each dataLayer entry as an argument list; an array works the same as the canonical
-// snippet's `arguments` object (this is what react-ga4 / the official Next.js example do too).
-function gtag(...args: unknown[]) {
-  window.dataLayer.push(args);
+// Keep this identical to Google's installation snippet. The Google tag consumes the native
+// `arguments` object that represents each command; a normal array is not a supported substitute.
+function gtag(..._args: unknown[]) {
+  // Google’s snippet intentionally uses `arguments` here rather than the rest parameter.
+  // eslint-disable-next-line prefer-rest-params
+  window.dataLayer.push(arguments);
 }
 
 export function initAnalytics(): void {

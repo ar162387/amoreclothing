@@ -43,7 +43,10 @@ export function initAnalytics(): void {
   gtag('js', new Date());
   // page_view is sent manually per route (see trackPageView) so SPA navigations are counted
   // and /admin can be skipped.
-  gtag('config', GA_ID, { send_page_view: false });
+  // `?ga_debug=1` is a temporary, opt-in troubleshooting mode. It makes this one browser visit
+  // visible in GA4 DebugView without marking ordinary customer visits as debug traffic.
+  const debugMode = new URLSearchParams(window.location.search).get('ga_debug') === '1';
+  gtag('config', GA_ID, { send_page_view: false, ...(debugMode ? { debug_mode: true } : {}) });
 
   const s = document.createElement('script');
   s.async = true;

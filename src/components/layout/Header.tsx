@@ -6,6 +6,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from 
 import { productsService, Product } from '@/services/products';
 import { formatPrice } from '@/data/store';
 import { getOptimizedImageUrl } from '@/lib/productImage';
+import { productPath } from '@/lib/productUrl';
 
 interface HeaderProps {
   hasHero?: boolean;
@@ -219,7 +220,7 @@ const Header = ({ hasHero = false, staticHeader = false }: HeaderProps) => {
                   searchResults.map((product) => (
                     <Link
                       key={product.id}
-                      to={`/product/${product.id}`}
+                      to={productPath(product)}
                       onClick={closeSearch}
                       className="flex items-center gap-4 p-3 hover:bg-secondary transition-colors"
                     >

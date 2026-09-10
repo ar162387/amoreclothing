@@ -10,6 +10,7 @@ import { useSeo } from '@/hooks/use-seo';
 import { absoluteUrl, buildOrganizationJsonLd, buildWebsiteJsonLd, SITE_DESCRIPTION, SITE_TITLE } from '@/lib/seo';
 import { buildShoppingSections, COLLECTION_INTRO, COLLECTION_TITLE, getProductSummary, STYLING_BODY, STYLING_TITLE } from '@/lib/catalogContent';
 import { trackViewItemList } from '@/lib/analytics';
+import { productPath } from '@/lib/productUrl';
 
 const Index = () => {
   const home = useSitePage('home');
@@ -126,7 +127,7 @@ const Index = () => {
                   <ul className="space-y-5">
                     {section.products.map((product) => (
                       <li key={product.id}>
-                        <Link to={`/product/${product.id}`} className="text-sm underline underline-offset-4 hover:text-muted-foreground">{product.name}</Link>
+                        <Link to={productPath(product)} className="text-sm underline underline-offset-4 hover:text-muted-foreground">{product.name}</Link>
                         <p className="text-xs leading-relaxed text-muted-foreground mt-2">{getProductSummary(product)}</p>
                       </li>
                     ))}

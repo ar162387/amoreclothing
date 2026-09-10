@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getOptimizedImageUrl } from '@/lib/productImage';
 import { buildWhatsAppCheckoutUrl } from '@/lib/whatsappCheckout';
+import { productPath } from '@/lib/productUrl';
 
 const CartDrawer = () => {
   const navigate = useNavigate();
@@ -64,7 +65,7 @@ const CartDrawer = () => {
                     >
                       {/* Image */}
                       <Link
-                        to={`/product/${item.product.id}`}
+                        to={productPath(item.product)}
                         onClick={closeCart}
                         className="w-20 h-28 bg-secondary shrink-0"
                       >
@@ -83,7 +84,7 @@ const CartDrawer = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start mb-2 gap-2">
                           <Link
-                            to={`/product/${item.product.id}`}
+                            to={productPath(item.product)}
                             onClick={closeCart}
                             className="text-sm font-medium hover:underline flex-1"
                           >

@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { cloudinaryImageUrl } from '../src/lib/cloudinary.js';
+import { productPath } from '../src/lib/productUrl.js';
 
 const SITE_URL = 'https://rarstudio.co';
 
@@ -37,7 +38,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
       const supabase = createClient(supabaseUrl, supabaseAnonKey);
       const { data, error } = await supabase
         .from('products')
-        .select('id, created_at, image_front, image_back, images_other')
+        .select('id, name, created_at, image_front, image_back, images_other')
         .eq('available', true);
 
       if (error) throw error;
@@ -49,7 +50,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
           .filter((value): value is string => Boolean(value))
           .map((src) => cloudinaryImageUrl(src, { width: 1600 }));
         urls.push({
-          loc: `${SITE_URL}/product/${product.id}`,
+          loc: `${SITE_URL}${productPath(product)}`,
           priority: '0.8',
           lastmod: product.created_at ? new Date(product.created_at).toISOString() : undefined,
           images,

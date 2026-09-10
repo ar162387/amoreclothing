@@ -6,6 +6,7 @@ import { Product } from '@/services/products';
 import { useCartStore } from '@/store/cartStore';
 import { getOptimizedImageUrl, buildSrcSet } from '@/lib/productImage';
 import { trackAddToCart, trackSelectItem } from '@/lib/analytics';
+import { productPath } from '@/lib/productUrl';
 
 const LIST_NAME = 'Storefront Grid';
 const GRID_WIDTHS = [320, 480, 640, 828];
@@ -39,7 +40,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
   return (
     <div className="group">
       <Link
-        to={`/product/${product.id}`}
+        to={productPath(product)}
         className="block"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}

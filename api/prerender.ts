@@ -15,6 +15,7 @@ import type { ContactInfo } from '../src/services/siteContent.js';
 import { buildShoppingSections, COLLECTION_TITLE, COLLECTION_INTRO, getProductSummary, getProductHighlights, STYLING_TITLE, STYLING_BODY, type CatalogProduct } from '../src/lib/catalogContent.js';
 import type { SizeGuide } from '../src/services/products.js';
 import { cloudinaryImageUrl } from '../src/lib/cloudinary.js';
+import { productIdFromRoute, productPath } from '../src/lib/productUrl.js';
 
 /**
  * Serves real, crawlable HTML to bots that don't execute JavaScript (GPTBot, ClaudeBot,
@@ -135,9 +136,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // --- Product page ---------------------------------------------------
   if (productMatch) {
-    const id = productMatch[1];
+    const id = productIdFromRoute(productMatch[1]);
     const { data: product, error } = supabase
-      ? await supabase.from('products').select('*, collections(name), fabric_care(title, body)').eq('id', id).single()
+      ? id
+        ? await supabase.from('products').select('*, collections(name), fabric_care(title, body)').eq('id', id).single()
+        : { data: null, error: new Error('Invalid product route') }
       : { data: null, error: new Error('Supabase not configured') };
 
     if (error || !product) {
@@ -160,7 +163,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const images: string[] = [product.image_front, product.image_back, ...(product.images_other ?? [])]
       .filter((src): src is string => Boolean(src))
       .map((src) => cloudinaryImageUrl(src, { width: 1200 }));
-    const url = absoluteUrl(`/product/${id}`);
+    const canonicalPath = productPath(product);
+    const url = absoluteUrl(canonicalPath);
 
     sendHtml(
       res,
@@ -168,7 +172,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       renderPage({
         title: `${product.name} | ${SITE_NAME}`,
         description: buildProductMetaDescription(product),
-        canonicalPath: `/product/${id}`,
+        canonicalPath,
         image: product.image_front ? absoluteUrl(cloudinaryImageUrl(product.image_front, { width: 1200 })) : undefined,
         jsonLd: [buildProductJsonLd({ ...product, image_front: images[0] ?? null, image_back: images[1] ?? null, images_other: images.slice(2) }, url)],
         bodyHtml: `
@@ -302,11 +306,11 @@ ${body
 <h2>${escapeHtml(COLLECTION_TITLE)}</h2>
 <p>${escapeHtml(COLLECTION_INTRO)}</p>
 <ul>
-${productLinks.map((product) => `<li><a href="/product/${escapeHtml(product.id)}">${escapeHtml(product.name)}</a></li>`).join('\n')}
+${productLinks.map((product) => `<li><a href="${escapeHtml(productPath(product))}">${escapeHtml(product.name)}</a></li>`).join('\n')}
 </ul>
 ${buildShoppingSections(productLinks).map((section) => `<section id="${section.id}">
 <h2>${escapeHtml(section.title)}</h2><p>${escapeHtml(section.body)}</p>
-<ul>${section.products.map((product) => `<li><a href="/product/${escapeHtml(product.id)}">${escapeHtml(product.name)}</a><p>${escapeHtml(getProductSummary(product))}</p></li>`).join('')}</ul>
+<ul>${section.products.map((product) => `<li><a href="${escapeHtml(productPath(product))}">${escapeHtml(product.name)}</a><p>${escapeHtml(getProductSummary(product))}</p></li>`).join('')}</ul>
 </section>`).join('')}
 ${productLinks.length ? `<h2>${escapeHtml(STYLING_TITLE)}</h2><p>${escapeHtml(STYLING_BODY)}</p>` : ''}
 <h2>Shop by Style</h2>

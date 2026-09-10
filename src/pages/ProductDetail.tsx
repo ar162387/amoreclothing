@@ -17,12 +17,14 @@ import { getOptimizedImageUrl, buildSrcSet } from '@/lib/productImage';
 import { buildWhatsAppCheckoutUrl } from '@/lib/whatsappCheckout';
 import { getProductHighlights } from '@/lib/catalogContent';
 import { trackViewItem, trackAddToCart } from '@/lib/analytics';
+import { productIdFromRoute, productPath } from '@/lib/productUrl';
 
 const GALLERY_WIDTHS = [480, 640, 828, 1080, 1280, 1600];
 const GALLERY_SIZES = '(min-width: 1024px) 50vw, 100vw';
 
 const ProductDetail = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id: routeValue } = useParams<{ id: string }>();
+  const id = routeValue ? productIdFromRoute(routeValue) : null;
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedSize, setSelectedSize] = useState<string>('');
@@ -52,14 +54,18 @@ const ProductDetail = () => {
   useSeo({
     title: product ? `${product.name} | ${SITE_NAME}` : SITE_TITLE,
     description: product ? buildProductMetaDescription(product) : SITE_DESCRIPTION,
-    canonicalPath: id ? `/product/${id}` : '/',
+    canonicalPath: product ? productPath(product) : '/',
     image: product?.image_front ? absoluteUrl(product.image_front) : undefined,
-    jsonLd: product && id ? buildProductJsonLd(product, absoluteUrl(`/product/${id}`)) : undefined,
+    jsonLd: product ? buildProductJsonLd(product, absoluteUrl(productPath(product))) : undefined,
   });
 
   useEffect(() => {
     const fetchProduct = async () => {
-      if (!id) return;
+      if (!id) {
+        setProduct(null);
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       const { data, error } = await productsService.getProductById(id);
       if (error) {

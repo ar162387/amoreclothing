@@ -300,14 +300,15 @@ ${(shippingContent?.body || '').split('\n\n').filter(Boolean).map((paragraph) =>
       title: SITE_TITLE, description: SITE_DESCRIPTION, canonicalPath: '/', image: socialImage,
       imageAlt: 'RAR Studio women’s western co-ord collection in Pakistan',
       jsonLd: [buildOrganizationJsonLd(contactInfo), buildWebsiteJsonLd(), buildCatalogImageJsonLd(productLinks)],
-      bodyHtml: `<main><p>${escapeHtml(HOME_EYEBROW)}</p><h1>${escapeHtml(HOME_H1)}</h1><p>${escapeHtml(hero.body)}</p><p>${escapeHtml(ENTITY_DESCRIPTION)}</p>
-<h2>${escapeHtml(COLLECTION_TITLE)}</h2><p>${escapeHtml(COLLECTION_INTRO)}</p><ul>
+      bodyHtml: `<main><p>${escapeHtml(HOME_EYEBROW)}</p><h1>${escapeHtml(HOME_H1)}</h1><p>${escapeHtml(hero.body)}</p>
+<h2>${escapeHtml(COLLECTION_TITLE)}</h2><ul>
 ${productLinks.map((product) => {
   const thumbnail = cloudinaryCrawlerThumbnail(product.image_front);
   return `<li><a href="${escapeHtml(productPath(product))}">${thumbnail ? `<img src="${escapeHtml(thumbnail)}" alt="${escapeHtml(getProductImageAlt(product))}" width="320" />` : ''}${escapeHtml(product.name)}</a><p>PKR ${Number(product.price).toLocaleString()}</p>${product.description ? `<p>${escapeHtml(product.description)}</p>` : ''}<p>${product.available ? 'In stock' : 'Sold out'}</p></li>`;
 }).join('\n')}</ul>
+<details><summary>About the collection</summary><p>${escapeHtml(COLLECTION_INTRO)}</p><p>${escapeHtml(ENTITY_DESCRIPTION)}</p>
 ${buildShoppingSections(productLinks).map((section) => `<section id="${section.id}"><h2>${escapeHtml(section.title)}</h2><p>${escapeHtml(section.body)}</p><ul>${section.products.map((product) => `<li><a href="${escapeHtml(productPath(product))}">${escapeHtml(product.name)}</a><p>${escapeHtml(getProductSummary(product))}</p></li>`).join('')}</ul></section>`).join('')}
-${productLinks.length ? `<h2>${escapeHtml(STYLING_TITLE)}</h2><p>${escapeHtml(STYLING_BODY)}</p>` : ''}
+${productLinks.length ? `<h2>${escapeHtml(STYLING_TITLE)}</h2><p>${escapeHtml(STYLING_BODY)}</p>` : ''}</details>
 <h2>Shop by Style</h2><ul>${hero.tiles.map((tile) => `<li>${escapeHtml(tile.eyebrow)}: ${escapeHtml(tile.title)}</li>`).join('')}</ul>
 <h2>Shop by type</h2><ul>${SHOP_BY_TYPE_LINKS.map((item) => `<li><a href="${item.path}">${escapeHtml(item.label)}</a></li>`).join('')}</ul>
 <p><a href="/about">About ${SITE_NAME}</a> · <a href="/faq">Co-ord sets FAQ</a> · <a href="/contact">Contact ${SITE_NAME}</a></p></main>`,

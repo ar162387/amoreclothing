@@ -101,9 +101,6 @@ const Index = () => {
             </h2>
           </div>
 
-          <p className="max-w-2xl text-sm font-light leading-relaxed text-muted-foreground mb-10">{COLLECTION_INTRO}</p>
-          <p className="max-w-2xl text-sm font-light leading-relaxed text-muted-foreground mb-10">{ENTITY_DESCRIPTION}</p>
-
           {loading ? (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
               {[...Array(8)].map((_, index) => (
@@ -121,28 +118,40 @@ const Index = () => {
       </section>
 
       {!loading && products.some((product) => product.available) && (
-        <section className="border-t border-border py-16 lg:py-20">
-          <div className="container mx-auto px-6">
-            <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-3">
-              {buildShoppingSections(products).map((section) => (
-                <div key={section.id} id={section.id} className="scroll-mt-28">
-                  <h2 className="font-serif text-2xl font-light mb-4">{section.title}</h2>
-                  <p className="text-sm font-light leading-relaxed text-muted-foreground mb-6">{section.body}</p>
-                  <ul className="space-y-5">
-                    {section.products.map((product) => (
-                      <li key={product.id}>
-                        <Link to={productPath(product)} className="text-sm underline underline-offset-4 hover:text-muted-foreground">{product.name}</Link>
-                        <p className="text-xs leading-relaxed text-muted-foreground mt-2">{getProductSummary(product)}</p>
-                      </li>
-                    ))}
-                  </ul>
+        <section className="border-t border-border">
+          <div className="container mx-auto px-6 py-8">
+            <details className="group border-y border-border">
+              <summary className="flex cursor-pointer list-none items-center justify-between py-5 text-xs uppercase tracking-[0.18em] text-muted-foreground [&::-webkit-details-marker]:hidden">
+                About the collection
+                <span aria-hidden="true" className="text-lg font-light transition-transform group-open:rotate-45">+</span>
+              </summary>
+              <div className="pb-12 pt-4">
+                <div className="max-w-3xl space-y-5 text-sm font-light leading-relaxed text-muted-foreground">
+                  <p>{COLLECTION_INTRO}</p>
+                  <p>{ENTITY_DESCRIPTION}</p>
                 </div>
-              ))}
-            </div>
-            <div className="max-w-2xl mt-14">
-              <h2 className="font-serif text-2xl font-light mb-4">{STYLING_TITLE}</h2>
-              <p className="text-sm font-light leading-relaxed text-muted-foreground">{STYLING_BODY}</p>
-            </div>
+                <div className="mt-12 grid gap-12 md:grid-cols-2 lg:grid-cols-3">
+                  {buildShoppingSections(products).map((section) => (
+                    <div key={section.id} id={section.id} className="scroll-mt-28">
+                      <h2 className="font-serif text-2xl font-light mb-4">{section.title}</h2>
+                      <p className="text-sm font-light leading-relaxed text-muted-foreground mb-6">{section.body}</p>
+                      <ul className="space-y-5">
+                        {section.products.map((product) => (
+                          <li key={product.id}>
+                            <Link to={productPath(product)} className="text-sm underline underline-offset-4 hover:text-muted-foreground">{product.name}</Link>
+                            <p className="text-xs leading-relaxed text-muted-foreground mt-2">{getProductSummary(product)}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+                <div className="max-w-2xl mt-14">
+                  <h2 className="font-serif text-2xl font-light mb-4">{STYLING_TITLE}</h2>
+                  <p className="text-sm font-light leading-relaxed text-muted-foreground">{STYLING_BODY}</p>
+                </div>
+              </div>
+            </details>
           </div>
         </section>
       )}

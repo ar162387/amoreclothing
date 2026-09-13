@@ -1,4 +1,17 @@
 {
+  "functions": {
+    "api/prerender.ts": {
+      "includeFiles": "dist/**"
+    }
+  },
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "www\\.rarstudio\\.co" }],
+      "destination": "https://rarstudio.co/:path*",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/sitemap.xml",

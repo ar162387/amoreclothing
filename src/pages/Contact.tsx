@@ -8,6 +8,7 @@ import { useSitePage } from '@/contexts/SiteContentContext';
 import { toWaNumber } from '@/lib/siteContent';
 import { useSeo } from '@/hooks/use-seo';
 import { absoluteUrl, buildContactPageJsonLd } from '@/lib/seo';
+import { cloudinarySocialImage } from '@/lib/cloudinary';
 
 const contactSchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(100),
@@ -23,7 +24,10 @@ const Contact = () => {
     title: 'Contact | RAR Studio',
     description: contact.hero.body,
     canonicalPath: '/contact',
-    image: contact.hero.media.type === 'image' ? absoluteUrl(contact.hero.media.url) : undefined,
+    image: contact.hero.media.type === 'image'
+      ? absoluteUrl(cloudinarySocialImage(contact.hero.media.url) || contact.hero.media.url)
+      : undefined,
+    imageAlt: 'Contact RAR Studio in Rawalpindi, Pakistan',
     jsonLd: buildContactPageJsonLd(contact.info),
   });
 

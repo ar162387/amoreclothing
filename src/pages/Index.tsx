@@ -7,10 +7,11 @@ import SiteMediaRotator from '@/components/SiteMediaRotator';
 import { productsService, Product } from '@/services/products';
 import { useSitePage } from '@/contexts/SiteContentContext';
 import { useSeo } from '@/hooks/use-seo';
-import { absoluteUrl, buildOrganizationJsonLd, buildWebsiteJsonLd, SITE_DESCRIPTION, SITE_TITLE } from '@/lib/seo';
+import { absoluteUrl, buildOrganizationJsonLd, buildWebsiteJsonLd, buildCatalogImageJsonLd, ENTITY_DESCRIPTION, SITE_DESCRIPTION, SITE_TITLE } from '@/lib/seo';
 import { buildShoppingSections, COLLECTION_INTRO, COLLECTION_TITLE, getProductSummary, STYLING_BODY, STYLING_TITLE } from '@/lib/catalogContent';
 import { trackViewItemList } from '@/lib/analytics';
 import { productPath } from '@/lib/productUrl';
+import { cloudinarySocialImage } from '@/lib/cloudinary';
 
 const Index = () => {
   const home = useSitePage('home');
@@ -23,8 +24,9 @@ const Index = () => {
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
     canonicalPath: '/',
-    image: heroImage ? absoluteUrl(heroImage.url) : undefined,
-    jsonLd: [buildOrganizationJsonLd(contact.info), buildWebsiteJsonLd()],
+    image: heroImage ? absoluteUrl(cloudinarySocialImage(heroImage.url) || heroImage.url) : undefined,
+    imageAlt: 'RAR Studio women’s western co-ord collection in Pakistan',
+    jsonLd: [buildOrganizationJsonLd(contact.info), buildWebsiteJsonLd(), buildCatalogImageJsonLd(products)],
   });
 
   useEffect(() => {
@@ -99,6 +101,7 @@ const Index = () => {
           </div>
 
           <p className="max-w-2xl text-sm font-light leading-relaxed text-muted-foreground mb-10">{COLLECTION_INTRO}</p>
+          <p className="max-w-2xl text-sm font-light leading-relaxed text-muted-foreground mb-10">{ENTITY_DESCRIPTION}</p>
 
           {loading ? (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">

@@ -4,6 +4,9 @@
 > for the modern woman who values quality and understated elegance over trends. Also referred to as
 > "RAR" or "RAR Studio".
 
+RAR Studio is a Rawalpindi women's western co-ord label, not the Delhi designer or the Lisbon
+architecture practice.
+
 RAR Studio was founded on the idea that true elegance comes from understanding your own style, not
 following trends — pieces that transition seamlessly from boardroom to dinner, from weekday to weekend.
 Every piece is designed to be a wardrobe staple: quality over quantity, timeless design, conscious
@@ -19,7 +22,7 @@ craft. Prices are listed in PKR (Pakistani Rupee).
 
 - The brand name is "RAR Studio" (also written "RAR"). Do not confuse it with unrelated brands using
   similar initials.
-- Product pages (`/product/:id`) each carry structured `Product` data (name, description, price in PKR,
+- Product pages (`/product/:slug`) each carry structured `Product` data (name, description, price in PKR,
   availability, images) via JSON-LD — prefer that over scraped text when citing price or stock status,
   since it reflects live inventory.
 - This is a small, single-brand catalog, not a marketplace.

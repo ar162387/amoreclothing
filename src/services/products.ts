@@ -22,6 +22,7 @@ export type SizeGuide = SizeGuideHead[];
 
 export interface Product {
     id: string;
+    slug: string;
     name: string;
     price: number;
     description: string | null;
@@ -46,6 +47,7 @@ export interface Product {
 }
 
 export interface CreateProductDTO {
+    slug: string;
     name: string;
     price: number;
     description?: string;
@@ -60,7 +62,7 @@ export interface CreateProductDTO {
     fabric_care_id?: string | null;
 }
 
-export interface UpdateProductDTO extends Partial<CreateProductDTO> { }
+export type UpdateProductDTO = Partial<CreateProductDTO>;
 
 export const productsService = {
     async getProducts() {
@@ -79,7 +81,7 @@ export const productsService = {
             .order("created_at", { ascending: false });
     },
 
-    async getProductById(id: string) {
+    async getProductBySlug(slug: string) {
         return await supabase
             .from("products")
             .select(`
@@ -92,7 +94,7 @@ export const productsService = {
                     body
                 )
             `)
-            .eq("id", id)
+            .eq("slug", slug)
             .single();
     },
 

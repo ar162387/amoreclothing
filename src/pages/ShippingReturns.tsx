@@ -3,6 +3,8 @@ import { ChevronLeft } from 'lucide-react';
 import Footer from '@/components/layout/Footer';
 import { useSitePage } from '@/contexts/SiteContentContext';
 import { useSeo } from '@/hooks/use-seo';
+import { absoluteUrl } from '@/lib/seo';
+import { cloudinarySocialImage } from '@/lib/cloudinary';
 
 /**
  * Standalone "Shipping, Exchange & Return" page. Content (title + body) is fully admin-editable
@@ -16,11 +18,15 @@ import { useSeo } from '@/hooks/use-seo';
 const ShippingReturns = () => {
   const navigate = useNavigate();
   const shipping = useSitePage('shipping');
+  const home = useSitePage('home');
+  const socialImage = home.hero.media.find((item) => item.type === 'image');
 
   useSeo({
     title: 'Shipping, Exchange & Return | RAR Studio',
     description: shipping.hero.body,
     canonicalPath: '/shipping-returns',
+    image: socialImage ? absoluteUrl(cloudinarySocialImage(socialImage.url) || socialImage.url) : undefined,
+    imageAlt: 'RAR Studio women’s western co-ord collection',
   });
 
   const paragraphs = shipping.body.split('\n\n').filter(Boolean);

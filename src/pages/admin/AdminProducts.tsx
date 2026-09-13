@@ -22,6 +22,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { slugifyProductName } from '@/lib/productUrl';
 
 const AdminProducts = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -99,7 +100,8 @@ const AdminProducts = () => {
       setEditingProduct(null);
     } catch (error) {
       console.error(error);
-      toast.error('Failed to save product');
+      const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
+      toast.error(code === '23505' ? 'That URL slug is already used by another product.' : 'Failed to save product');
     }
   };
 
@@ -272,6 +274,7 @@ interface LocalFile {
 
 const ProductForm = ({ product, collections, fabricCareOptions, onSave, onCancel }: ProductFormProps) => {
   const [formData, setFormData] = useState<CreateProductDTO>({
+    slug: product?.slug || '',
     name: product?.name || '',
     price: product?.price || 0,
     description: product?.description || '',
@@ -294,6 +297,7 @@ const ProductForm = ({ product, collections, fabricCareOptions, onSave, onCancel
   // Reset form when product changes (e.g., when opening edit modal)
   useEffect(() => {
     setFormData({
+      slug: product?.slug || '',
       name: product?.name || '',
       price: product?.price || 0,
       description: product?.description || '',
@@ -412,6 +416,12 @@ const ProductForm = ({ product, collections, fabricCareOptions, onSave, onCancel
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const normalizedSlug = slugifyProductName(formData.slug || formData.name);
+    if (!normalizedSlug) {
+      toast.error('Enter a valid URL slug.');
+      return;
+    }
+
     const sizeGuideError = validateSizeGuide();
     if (sizeGuideError) {
       toast.error(sizeGuideError);
@@ -443,6 +453,7 @@ const ProductForm = ({ product, collections, fabricCareOptions, onSave, onCancel
 
       const finalData: CreateProductDTO = {
         ...formData,
+        slug: normalizedSlug,
         collection_id: formData.collection_id || null,
         image_front: finalFront,
         image_back: finalBack,
@@ -468,9 +479,31 @@ const ProductForm = ({ product, collections, fabricCareOptions, onSave, onCancel
             <Input
               id="name"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) => {
+                const name = e.target.value;
+                setFormData((current) => ({
+                  ...current,
+                  name,
+                  slug: product ? current.slug : slugifyProductName(name),
+                }));
+              }}
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="slug">URL Slug</Label>
+            <Input
+              id="slug"
+              value={formData.slug}
+              onChange={(e) => setFormData({ ...formData, slug: slugifyProductName(e.target.value) })}
+              pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+              placeholder="the-sage-hour"
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              Public URL: /product/{formData.slug || 'product-name'}. Existing slugs stay unchanged when a name is edited.
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

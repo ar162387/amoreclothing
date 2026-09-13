@@ -1,37 +1,20 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
-  SITE_NAME,
-  SITE_TITLE,
-  SITE_DESCRIPTION,
-  absoluteUrl,
-  buildOrganizationJsonLd,
-  buildWebsiteJsonLd,
-  buildContactPageJsonLd,
-  buildProductJsonLd,
-  buildProductMetaDescription,
+  ENTITY_DESCRIPTION, SITE_DESCRIPTION, SITE_LOGO_URL, SITE_NAME, SITE_TITLE, absoluteUrl,
+  buildCatalogImageJsonLd, buildContactPageJsonLd, buildOrganizationJsonLd, buildProductJsonLd,
+  buildProductMetaDescription, buildProductSearchTitle, buildWebsiteJsonLd,
 } from '../src/lib/seo.js';
-import type { ContactInfo } from '../src/services/siteContent.js';
-import { buildShoppingSections, COLLECTION_TITLE, COLLECTION_INTRO, getProductSummary, getProductHighlights, STYLING_TITLE, STYLING_BODY, type CatalogProduct } from '../src/lib/catalogContent.js';
-import type { SizeGuide } from '../src/services/products.js';
-import { cloudinaryImageUrl } from '../src/lib/cloudinary.js';
+import {
+  COLLECTION_INTRO, COLLECTION_TITLE, STYLING_BODY, STYLING_TITLE, buildShoppingSections,
+  getProductHighlights, getProductImageAlt, getProductSummary, type CatalogProduct,
+} from '../src/lib/catalogContent.js';
+import { cloudinaryCrawlerThumbnail, cloudinaryImageUrl, cloudinarySocialImage } from '../src/lib/cloudinary.js';
 import { productIdFromRoute, productPath } from '../src/lib/productUrl.js';
-
-/**
- * Serves real, crawlable HTML to bots that don't execute JavaScript (GPTBot, ClaudeBot,
- * PerplexityBot, CCBot, facebookexternalhit, Twitterbot, ...) — see middleware.ts, which is what
- * routes bot traffic here in the first place. Everyone else keeps hitting the static SPA directly;
- * this function is never in a real visitor's path.
- *
- * Minimal hand-written HTML templates, not React SSR — bots only need correct <title>/meta/JSON-LD
- * and readable text, not interactivity, and this avoids duplicating the app's component tree in a
- * second rendering path.
- *
- * Fallback copy below is a small, deliberately duplicated subset of src/config/siteContent.defaults.ts
- * — that file can't be imported here because it pulls in Vite's `@/assets/*.jpg` asset-URL imports,
- * which this function's bundler (esbuild, via @vercel/node) can't resolve. Keep the two loosely in
- * sync by hand; this only matters while the site_content DB row is empty.
- */
+import type { Product, SizeGuide } from '../src/services/products.js';
+import type { ContactInfo, SiteMediaValue } from '../src/services/siteContent.js';
 
 const HOME_FALLBACK = {
   title: 'Timeless Elegance',
@@ -43,38 +26,51 @@ const HOME_FALLBACK = {
 };
 
 const CONTACT_FALLBACK: ContactInfo = {
-  email: 'hello@rarstudio.co',
-  phone: '+92 300 1234567',
-  instagram_handle: '@rarstudio',
-  instagram_url: 'https://instagram.com',
-  location: 'Lahore, Pakistan',
+  email: 'portfoliowaqar@gmail.com',
+  phone: '+92 300 1056929',
+  instagram_handle: '@_rar.studio',
+  instagram_url: 'https://www.instagram.com/_rar.studio?igsh=anVxZHNjeDNwbjhr',
+  location: 'Rawalpindi, Pakistan',
   whatsapp_message: 'Hello! I have a question about RAR Studio.',
 };
 
-const CONTACT_HERO_FALLBACK =
-  "We'd love to hear from you. Send us a message and we'll respond as soon as possible.";
-
+const CONTACT_HERO_FALLBACK = "We'd love to hear from you. Send us a message and we'll respond as soon as possible.";
 const SHIPPING_FALLBACK = {
   title: 'Shipping, Exchange & Return',
   body: 'Everything you need to know about delivery, exchanges, and returns.',
 };
 
+type ServerProduct = Product & { collections?: { name: string } | null };
+type SiteContentRow = { page: string; content: Record<string, unknown> | null };
+let cachedSpaShell: string | undefined;
+
 function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-function renderSizeGuide(heads: SizeGuide, sizes: string[]): string {
-  if (!sizes.length) return '';
-  const tables = heads.filter((head) => head.label && head.rows.length).map((head) => `
-<h3>${escapeHtml(head.label)}</h3>
-<table><thead><tr><th scope="col">Measurement</th>${sizes.map((size) => `<th scope="col">${escapeHtml(size)}</th>`).join('')}</tr></thead>
-<tbody>${head.rows.map((row) => `<tr><th scope="row">${escapeHtml(row.label)}</th>${sizes.map((size) => `<td>${escapeHtml(row.values[size] || '—')}</td>`).join('')}</tr>`).join('')}</tbody></table>`).join('');
-  return tables ? `<h2>Size Guide</h2><p>Measurements are garment measurements, not body measurements.</p>${tables}` : '';
+function loadSpaShell(): string {
+  if (cachedSpaShell) return cachedSpaShell;
+  const candidates = [path.join(process.cwd(), 'dist', 'index.html'), path.join(process.cwd(), 'index.html')];
+  const shellPath = candidates.find((candidate) => fs.existsSync(candidate));
+  if (!shellPath) throw new Error('Vite HTML shell was not packaged with the prerender function');
+  cachedSpaShell = fs.readFileSync(shellPath, 'utf8');
+  return cachedSpaShell;
+}
+
+function stripDefaultSeo(html: string): string {
+  const metaKeys = [
+    'description', 'robots', 'og:title', 'og:description', 'og:type', 'og:site_name', 'og:url', 'og:image',
+    'og:image:width', 'og:image:height', 'og:image:alt', 'twitter:card', 'twitter:title',
+    'twitter:description', 'twitter:image', 'twitter:image:alt',
+  ];
+  let result = html.replace(/<title>[\s\S]*?<\/title>\s*/i, '');
+  for (const key of metaKeys) {
+    const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    result = result.replace(new RegExp(`<meta\\b[^>]*(?:name|property)=["']${escaped}["'][^>]*>\\s*`, 'gi'), '');
+  }
+  return result.replace(/<link\b[^>]*rel=["']canonical["'][^>]*>\s*/gi, '')
+    .replace(/<script\b[^>]*data-rar-seo[^>]*>[\s\S]*?<\/script>\s*/gi, '');
 }
 
 interface PageOptions {
@@ -82,242 +78,203 @@ interface PageOptions {
   description: string;
   canonicalPath: string;
   image?: string;
+  imageAlt?: string;
+  ogType?: 'website' | 'product';
+  robots?: string;
   jsonLd: object[];
   bodyHtml: string;
 }
 
-function renderPage({ title, description, canonicalPath, image, jsonLd, bodyHtml }: PageOptions): string {
+function renderPage({ title, description, canonicalPath, image, imageAlt, ogType = 'website',
+  robots = 'index,follow,max-image-preview:large', jsonLd, bodyHtml }: PageOptions): string {
   const canonical = absoluteUrl(canonicalPath);
-  const jsonLdScripts = jsonLd
-    .map((data) => `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`)
-    .join('\n');
-
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>${escapeHtml(title)}</title>
+  const jsonLdScripts = jsonLd.map((data) =>
+    `<script type="application/ld+json" data-rar-seo="server">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`
+  ).join('\n');
+  const imageTags = image ? `<meta property="og:image" content="${escapeHtml(image)}" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+${imageAlt ? `<meta property="og:image:alt" content="${escapeHtml(imageAlt)}" />` : ''}
+<meta name="twitter:image" content="${escapeHtml(image)}" />
+${imageAlt ? `<meta name="twitter:image:alt" content="${escapeHtml(imageAlt)}" />` : ''}` : '';
+  const head = `<title>${escapeHtml(title)}</title>
 <meta name="description" content="${escapeHtml(description)}" />
-<link rel="icon" href="/favicon.ico" />
-<link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
-<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<meta name="robots" content="${escapeHtml(robots)}" />
 <link rel="canonical" href="${canonical}" />
 <meta property="og:title" content="${escapeHtml(title)}" />
 <meta property="og:description" content="${escapeHtml(description)}" />
-<meta property="og:type" content="website" />
+<meta property="og:type" content="${ogType}" />
 <meta property="og:site_name" content="${SITE_NAME}" />
 <meta property="og:url" content="${canonical}" />
-${image ? `<meta property="og:image" content="${image}" />\n` : ''}<meta name="twitter:card" content="summary_large_image" />
+${imageTags}
+<meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${escapeHtml(title)}" />
 <meta name="twitter:description" content="${escapeHtml(description)}" />
-${jsonLdScripts}
-</head>
-<body>
-${bodyHtml}
-</body>
-</html>`;
+${jsonLdScripts}`;
+  const shell = stripDefaultSeo(loadSpaShell()).replace('</head>', `${head}\n</head>`);
+  if (!/<div id=["']root["']>\s*<\/div>/.test(shell)) throw new Error('Vite HTML shell is missing an empty #root');
+  return shell.replace(/<div id=["']root["']>\s*<\/div>/,
+    `<div id="root"><div data-rar-prerendered>${bodyHtml}</div></div>`);
+}
+
+function renderSizeGuide(heads: SizeGuide, sizes: string[]): string {
+  if (!sizes.length) return '';
+  const tables = heads.filter((head) => head.label && head.rows.length).map((head) => `
+<h3>${escapeHtml(head.label)}</h3><table><thead><tr><th scope="col">Measurement</th>
+${sizes.map((size) => `<th scope="col">${escapeHtml(size)}</th>`).join('')}</tr></thead><tbody>
+${head.rows.map((row) => `<tr><th scope="row">${escapeHtml(row.label)}</th>${sizes.map((size) => `<td>${escapeHtml(row.values[size] || '—')}</td>`).join('')}</tr>`).join('')}
+</tbody></table>`).join('');
+  return tables ? `<h2>Size Guide</h2><p>Measurements are garment measurements, not body measurements.</p>${tables}` : '';
 }
 
 function sendHtml(res: VercelResponse, status: number, html: string) {
   res.status(status).setHeader('Content-Type', 'text/html; charset=utf-8').send(html);
 }
 
+function sendUnavailable(res: VercelResponse) {
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Retry-After', '60');
+  sendHtml(res, 503, '<!doctype html><html lang="en"><head><meta name="robots" content="noindex"><title>Please try again shortly</title></head><body><h1>Please try again shortly</h1></body></html>');
+}
+
+function redirectWithOriginalQuery(req: VercelRequest, res: VercelResponse, destination: string) {
+  const requestUrl = new URL(req.url || '/', 'https://rarstudio.co');
+  requestUrl.searchParams.delete('path');
+  requestUrl.searchParams.delete('id');
+  const query = requestUrl.searchParams.toString();
+  res.status(301).setHeader('Location', `${destination}${query ? `?${query}` : ''}`).end();
+}
+
+function firstImage(media: unknown): string | undefined {
+  if (!Array.isArray(media)) return undefined;
+  return (media as SiteMediaValue[]).find((item) => item?.type === 'image' && item.url)?.url;
+}
+
+async function loadSiteContent(supabase: SupabaseClient): Promise<SiteContentRow[]> {
+  const { data, error } = await supabase.from('site_content').select('page, content');
+  if (error) throw error;
+  return (data ?? []) as SiteContentRow[];
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const path = typeof req.query.path === 'string' ? req.query.path : '/';
+  const requestedPath = typeof req.query.path === 'string' ? req.query.path : '/';
+  const routePath = requestedPath !== '/' ? requestedPath.replace(/\/+$/, '') : '/';
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
-  const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+  if (!supabaseUrl || !supabaseAnonKey) return sendUnavailable(res);
+  const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-  // Cheap re-checks on a crawl burst don't need to hit Supabase every time.
-  res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=3600, stale-while-revalidate=3600');
-
-  const productMatch = path.match(/^\/product\/([^/]+)\/?$/);
-
-  // --- Product page ---------------------------------------------------
-  if (productMatch) {
-    const id = productIdFromRoute(productMatch[1]);
-    const { data: product, error } = supabase
-      ? id
-        ? await supabase.from('products').select('*, collections(name), fabric_care(title, body)').eq('id', id).single()
-        : { data: null, error: new Error('Invalid product route') }
-      : { data: null, error: new Error('Supabase not configured') };
-
-    if (error || !product) {
-      sendHtml(
-        res,
-        404,
-        renderPage({
-          title: `Product not found | ${SITE_NAME}`,
-          description: SITE_DESCRIPTION,
-          canonicalPath: '/',
-          jsonLd: [],
-          bodyHtml: `<h1>Product not found</h1><p><a href="/">Return to ${escapeHtml(SITE_NAME)}</a></p>`,
-        }),
-      );
-      return;
-    }
-
-    // Bots get Cloudinary-resized variants, never the multi-MB stored original — an un-capped image
-    // in crawlable HTML / the image sitemap is exactly what ran the old backend's egress quota dry.
-    const images: string[] = [product.image_front, product.image_back, ...(product.images_other ?? [])]
-      .filter((src): src is string => Boolean(src))
-      .map((src) => cloudinaryImageUrl(src, { width: 1200 }));
-    const canonicalPath = productPath(product);
-    const url = absoluteUrl(canonicalPath);
-
-    sendHtml(
-      res,
-      200,
-      renderPage({
-        title: `${product.name} | ${SITE_NAME}`,
-        description: buildProductMetaDescription(product),
-        canonicalPath,
-        image: product.image_front ? absoluteUrl(cloudinaryImageUrl(product.image_front, { width: 1200 })) : undefined,
-        jsonLd: [buildProductJsonLd({ ...product, image_front: images[0] ?? null, image_back: images[1] ?? null, images_other: images.slice(2) }, url)],
-        bodyHtml: `
-<h1>${escapeHtml(product.name)}</h1>
-<p>PKR ${Number(product.price).toLocaleString()}</p>
-${product.description ? `<p>${escapeHtml(product.description)}</p>\n` : ''}<p>${product.available ? 'In stock' : 'Sold out'}</p>
-<p>${escapeHtml(getProductHighlights(product))}</p>
-${product.fabric_care?.body ? `<h2>Fabric / Care</h2><p style="white-space:pre-line">${escapeHtml(product.fabric_care.body)}</p>` : ''}
-${renderSizeGuide(product.size_guide ?? [], product.sizes ?? [])}
-${product.collections?.name ? `<p>Collection: ${escapeHtml(product.collections.name)}</p>\n` : ''}${images
-          .map((src, i) => `<img src="${escapeHtml(src)}" alt="${escapeHtml(product.name)} - view ${i + 1}" />`)
-          .join('\n')}
-<p><a href="/">View the full collection at ${escapeHtml(SITE_NAME)}</a></p>`,
-      }),
-    );
-    return;
-  }
-
-  // --- Shipping, Exchange & Return page -------------------------------------
-  if (path === '/shipping-returns') {
-    let shipping = SHIPPING_FALLBACK;
-    let body = '';
-
-    if (supabase) {
-      const { data } = await supabase.from('site_content').select('content').eq('page', 'shipping').maybeSingle();
-      const content = (data?.content ?? {}) as Partial<{ hero?: { title?: string; body?: string }; body?: string }>;
-      if (content.hero?.title || content.hero?.body) {
-        shipping = { title: content.hero.title || shipping.title, body: content.hero.body || shipping.body };
+  try {
+    const productMatch = routePath.match(/^\/product\/([^/]+)$/);
+    if (productMatch) {
+      const routeValue = productMatch[1];
+      const legacyId = productIdFromRoute(routeValue);
+      const query = supabase.from('products').select('*, collections(name), fabric_care(title, body)');
+      const { data: product, error } = legacyId
+        ? await query.eq('id', legacyId).maybeSingle()
+        : await query.eq('slug', routeValue).maybeSingle();
+      if (error) return sendUnavailable(res);
+      if (!product) {
+        res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=300');
+        return sendHtml(res, 404, renderPage({
+          title: `Product not found | ${SITE_NAME}`, description: SITE_DESCRIPTION, canonicalPath: routePath,
+          robots: 'noindex,nofollow', jsonLd: [],
+          bodyHtml: `<main><h1>Product not found</h1><p><a href="/">Return to ${SITE_NAME}</a></p></main>`,
+        }));
       }
-      if (content.body) body = content.body;
+      const typedProduct = product as ServerProduct;
+      const canonicalPath = productPath(typedProduct);
+      if (legacyId || requestedPath !== canonicalPath) return redirectWithOriginalQuery(req, res, canonicalPath);
+      const url = absoluteUrl(canonicalPath);
+      const images = [typedProduct.image_front, typedProduct.image_back, ...(typedProduct.images_other ?? [])]
+        .filter((src): src is string => Boolean(src)).map((src) => cloudinaryImageUrl(src, { width: 1200 }));
+      res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600');
+      return sendHtml(res, 200, renderPage({
+        title: buildProductSearchTitle(typedProduct), description: buildProductMetaDescription(typedProduct), canonicalPath,
+        image: cloudinarySocialImage(typedProduct.image_front), imageAlt: getProductImageAlt(typedProduct), ogType: 'product',
+        jsonLd: [buildProductJsonLd({ ...typedProduct, image_front: images[0] ?? null,
+          image_back: images[1] ?? null, images_other: images.slice(2) }, url)],
+        bodyHtml: `<main><h1>${escapeHtml(typedProduct.name)}</h1><p>PKR ${Number(typedProduct.price).toLocaleString()}</p>
+${typedProduct.description ? `<p>${escapeHtml(typedProduct.description)}</p>` : ''}<p>${typedProduct.available ? 'In stock' : 'Sold out'}</p>
+<p>${escapeHtml(getProductHighlights(typedProduct))}</p>
+${typedProduct.fabric_care?.body ? `<h2>Fabric / Care</h2><p>${escapeHtml(typedProduct.fabric_care.body)}</p>` : ''}
+${renderSizeGuide(typedProduct.size_guide ?? [], typedProduct.sizes ?? [])}
+${typedProduct.collections?.name ? `<p>Collection: ${escapeHtml(typedProduct.collections.name)}</p>` : ''}
+${images.map((src, index) => `<img src="${escapeHtml(src)}" alt="${escapeHtml(getProductImageAlt(typedProduct, `view ${index + 1}`))}" />`).join('\n')}
+<p><a href="/">View the full collection at ${SITE_NAME}</a></p></main>`,
+      }));
     }
 
-    sendHtml(
-      res,
-      200,
-      renderPage({
-        title: `${shipping.title} | ${SITE_NAME}`,
-        description: shipping.body,
-        canonicalPath: '/shipping-returns',
-        jsonLd: [],
-        bodyHtml: `
-<h1>${escapeHtml(shipping.title)}</h1>
-<p>${escapeHtml(shipping.body)}</p>
-${body
-  .split('\n\n')
-  .filter(Boolean)
-  .map((para) => `<p>${escapeHtml(para)}</p>`)
-  .join('\n')}`,
-      }),
-    );
-    return;
-  }
+    const rows = await loadSiteContent(supabase);
+    const homeContent = rows.find((row) => row.page === 'home')?.content as { hero?: { title?: string; body?: string; media?: SiteMediaValue[] } } | undefined;
+    const contactContent = rows.find((row) => row.page === 'contact')?.content as { hero?: { body?: string; media?: SiteMediaValue }; info?: Partial<ContactInfo> } | undefined;
+    const shippingContent = rows.find((row) => row.page === 'shipping')?.content as { hero?: { title?: string; body?: string }; body?: string } | undefined;
+    const sharedImage = firstImage(homeContent?.hero?.media);
 
-  // --- Contact page ----------------------------------------------------
-  if (path === '/contact') {
-    let info = CONTACT_FALLBACK;
-    let heroBody = CONTACT_HERO_FALLBACK;
-
-    if (supabase) {
-      const { data } = await supabase.from('site_content').select('content').eq('page', 'contact').maybeSingle();
-      const content = (data?.content ?? {}) as Partial<{ hero?: { body?: string }; info?: Partial<ContactInfo> }>;
-      if (content.info) info = { ...CONTACT_FALLBACK, ...content.info };
-      if (content.hero?.body) heroBody = content.hero.body;
+    if (routePath === '/shipping-returns') {
+      const shipping = { title: shippingContent?.hero?.title || SHIPPING_FALLBACK.title,
+        body: shippingContent?.hero?.body || SHIPPING_FALLBACK.body };
+      res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600');
+      return sendHtml(res, 200, renderPage({
+        title: `${shipping.title} | ${SITE_NAME}`, description: shipping.body, canonicalPath: '/shipping-returns',
+        image: cloudinarySocialImage(sharedImage), imageAlt: 'RAR Studio women’s western co-ord collection', jsonLd: [],
+        bodyHtml: `<main><h1>${escapeHtml(shipping.title)}</h1><p>${escapeHtml(shipping.body)}</p>
+${(shippingContent?.body || '').split('\n\n').filter(Boolean).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('\n')}</main>`,
+      }));
     }
 
-    sendHtml(
-      res,
-      200,
-      renderPage({
-        title: `Contact | ${SITE_NAME}`,
-        description: heroBody,
-        canonicalPath: '/contact',
+    if (routePath === '/contact') {
+      const info = { ...CONTACT_FALLBACK, ...(contactContent?.info ?? {}) };
+      const heroBody = contactContent?.hero?.body || CONTACT_HERO_FALLBACK;
+      const contactImage = contactContent?.hero?.media?.type === 'image' ? contactContent.hero.media.url : sharedImage;
+      res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600');
+      return sendHtml(res, 200, renderPage({
+        title: `Contact | ${SITE_NAME}`, description: heroBody, canonicalPath: '/contact',
+        image: cloudinarySocialImage(contactImage), imageAlt: 'Contact RAR Studio in Rawalpindi, Pakistan',
         jsonLd: [buildContactPageJsonLd(info)],
-        bodyHtml: `
-<h1>Contact ${escapeHtml(SITE_NAME)}</h1>
-<p>${escapeHtml(heroBody)}</p>
-<ul>
-<li>Email: ${escapeHtml(info.email)}</li>
-<li>WhatsApp: ${escapeHtml(info.phone)}</li>
-<li>Instagram: ${escapeHtml(info.instagram_handle)}</li>
-<li>Location: ${escapeHtml(info.location)}</li>
-</ul>
-<p><a href="/">View the full collection at ${escapeHtml(SITE_NAME)}</a></p>`,
-      }),
-    );
-    return;
-  }
-
-  // --- Home page ---------------------------------------------------------
-  let hero = HOME_FALLBACK;
-  let contactInfo = CONTACT_FALLBACK;
-  let productLinks: CatalogProduct[] = [];
-
-  if (supabase) {
-    const { data } = await supabase.from('site_content').select('page, content');
-    const homeContent = data?.find((row) => row.page === 'home')?.content as
-      | Partial<{ hero?: { title?: string; body?: string } }>
-      | undefined;
-    const contactContent = data?.find((row) => row.page === 'contact')?.content as
-      | Partial<{ info?: Partial<ContactInfo> }>
-      | undefined;
-
-    if (homeContent?.hero?.title || homeContent?.hero?.body) {
-      hero = {
-        ...hero,
-        title: homeContent.hero?.title || hero.title,
-        body: homeContent.hero?.body || hero.body,
-      };
+        bodyHtml: `<main><h1>Contact ${SITE_NAME}</h1><p>${escapeHtml(heroBody)}</p><ul>
+<li>Email: ${escapeHtml(info.email)}</li><li>WhatsApp: ${escapeHtml(info.phone)}</li>
+<li>Instagram: ${escapeHtml(info.instagram_handle)}</li><li>Location: ${escapeHtml(info.location)}</li>
+</ul><p><a href="/">View the full collection at ${SITE_NAME}</a></p></main>`,
+      }));
     }
-    if (contactContent?.info) contactInfo = { ...CONTACT_FALLBACK, ...contactContent.info };
 
-    const { data: products } = await supabase
-      .from('products')
-      .select('id, name, description, available, size_guide, fabric_care(title, body)')
-      .eq('available', true)
-      .order('created_at', { ascending: false });
-    productLinks = (products ?? []) as unknown as CatalogProduct[];
-  }
+    if (routePath !== '/') {
+      res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=300');
+      return sendHtml(res, 404, renderPage({
+        title: `Page not found | ${SITE_NAME}`, description: SITE_DESCRIPTION, canonicalPath: routePath,
+        robots: 'noindex,nofollow', jsonLd: [],
+        bodyHtml: `<main><h1>Page not found</h1><p><a href="/">Return to ${SITE_NAME}</a></p></main>`,
+      }));
+    }
 
-  sendHtml(
-    res,
-    200,
-    renderPage({
-      title: SITE_TITLE,
-      description: SITE_DESCRIPTION,
-      canonicalPath: '/',
-      jsonLd: [buildOrganizationJsonLd(contactInfo), buildWebsiteJsonLd()],
-      bodyHtml: `
-<h1>${escapeHtml(hero.title)}</h1>
-<p>${escapeHtml(hero.body)}</p>
-<h2>${escapeHtml(COLLECTION_TITLE)}</h2>
-<p>${escapeHtml(COLLECTION_INTRO)}</p>
-<ul>
-${productLinks.map((product) => `<li><a href="${escapeHtml(productPath(product))}">${escapeHtml(product.name)}</a></li>`).join('\n')}
-</ul>
-${buildShoppingSections(productLinks).map((section) => `<section id="${section.id}">
-<h2>${escapeHtml(section.title)}</h2><p>${escapeHtml(section.body)}</p>
-<ul>${section.products.map((product) => `<li><a href="${escapeHtml(productPath(product))}">${escapeHtml(product.name)}</a><p>${escapeHtml(getProductSummary(product))}</p></li>`).join('')}</ul>
-</section>`).join('')}
+    const hero = { ...HOME_FALLBACK, title: homeContent?.hero?.title || HOME_FALLBACK.title,
+      body: homeContent?.hero?.body || HOME_FALLBACK.body };
+    const contactInfo = { ...CONTACT_FALLBACK, ...(contactContent?.info ?? {}) };
+    const { data: products, error: productsError } = await supabase.from('products')
+      .select('id, slug, name, price, description, available, size_guide, image_front, fabric_care(title, body)')
+      .eq('available', true).order('created_at', { ascending: false });
+    if (productsError) return sendUnavailable(res);
+    const productLinks = (products ?? []) as unknown as Array<CatalogProduct & Pick<Product, 'slug' | 'price' | 'image_front'>>;
+    const socialImage = cloudinarySocialImage(sharedImage || productLinks[0]?.image_front) || SITE_LOGO_URL;
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600');
+    return sendHtml(res, 200, renderPage({
+      title: SITE_TITLE, description: SITE_DESCRIPTION, canonicalPath: '/', image: socialImage,
+      imageAlt: 'RAR Studio women’s western co-ord collection in Pakistan',
+      jsonLd: [buildOrganizationJsonLd(contactInfo), buildWebsiteJsonLd(), buildCatalogImageJsonLd(productLinks)],
+      bodyHtml: `<main><h1>${escapeHtml(hero.title)}</h1><p>${escapeHtml(hero.body)}</p><p>${escapeHtml(ENTITY_DESCRIPTION)}</p>
+<h2>${escapeHtml(COLLECTION_TITLE)}</h2><p>${escapeHtml(COLLECTION_INTRO)}</p><ul>
+${productLinks.map((product) => {
+  const thumbnail = cloudinaryCrawlerThumbnail(product.image_front);
+  return `<li><a href="${escapeHtml(productPath(product))}">${thumbnail ? `<img src="${escapeHtml(thumbnail)}" alt="${escapeHtml(getProductImageAlt(product))}" width="320" />` : ''}${escapeHtml(product.name)}</a><p>PKR ${Number(product.price).toLocaleString()}</p>${product.description ? `<p>${escapeHtml(product.description)}</p>` : ''}<p>${product.available ? 'In stock' : 'Sold out'}</p></li>`;
+}).join('\n')}</ul>
+${buildShoppingSections(productLinks).map((section) => `<section id="${section.id}"><h2>${escapeHtml(section.title)}</h2><p>${escapeHtml(section.body)}</p><ul>${section.products.map((product) => `<li><a href="${escapeHtml(productPath(product))}">${escapeHtml(product.name)}</a><p>${escapeHtml(getProductSummary(product))}</p></li>`).join('')}</ul></section>`).join('')}
 ${productLinks.length ? `<h2>${escapeHtml(STYLING_TITLE)}</h2><p>${escapeHtml(STYLING_BODY)}</p>` : ''}
-<h2>Shop by Style</h2>
-<ul>
-${hero.tiles.map((tile) => `<li>${escapeHtml(tile.eyebrow)}: ${escapeHtml(tile.title)}</li>`).join('\n')}
-</ul>
-<p><a href="/contact">Contact ${escapeHtml(SITE_NAME)}</a></p>`,
-    }),
-  );
+<h2>Shop by Style</h2><ul>${hero.tiles.map((tile) => `<li>${escapeHtml(tile.eyebrow)}: ${escapeHtml(tile.title)}</li>`).join('')}</ul>
+<p><a href="/contact">Contact ${SITE_NAME}</a></p></main>`,
+    }));
+  } catch (error) {
+    console.error('prerender failed', error);
+    return sendUnavailable(res);
+  }
 }

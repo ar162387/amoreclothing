@@ -60,3 +60,31 @@ export function buildShoppingSections(products: CatalogProduct[]) {
       products: available.filter((product) => Boolean(getMaterialLabel(product))) },
   ].filter((section) => section.products.length > 0);
 }
+
+/** Specific search copy is derived from each assigned fabric record, never its product name.
+ * Unrecognised records keep the generic garment wording instead of inheriting another item's claims. */
+export function getProductSearchDetails(product: CatalogProduct): { phrase: string; detail: string } {
+  const title = product.fabric_care?.title.toLowerCase() ?? '';
+  const fabric = (product.fabric_care?.body ?? '').split(/^\s*care\s*:?\s*$/im)[0].toLowerCase();
+  const category = getProductCategory(product);
+  if (category === 'Matching top and trousers set' && /\bsilk\b/.test(title) && /silk-spandex/.test(fabric) && /satin/.test(fabric)) {
+    return { phrase: 'Silk Co-ord Set', detail: 'Silk-spandex satin co-ord set for formal and evening wear' };
+  }
+  if (category === 'Matching top and trousers set' && /crepe/.test(title) && /viscose.*polyester/.test(fabric)) {
+    return { phrase: 'Crepe Co-ord Set', detail: 'Viscose-polyester crepe top and trouser set for western casual wear' };
+  }
+  if (category === 'Skirt and top set' && /seersucker/.test(title) && /cotton.*viscose/.test(fabric)) {
+    return { phrase: 'Seersucker Skirt & Top Set', detail: 'Cotton-viscose seersucker shirt and maxi skirt set for smart casual to semi-formal wear' };
+  }
+  if (category === 'Skirt and top set' && /cotton/.test(title) && /silk/.test(title) && /silk\/mercerized cotton/.test(fabric)) {
+    return { phrase: 'Cotton & Silk Skirt Set', detail: 'Cotton shirt and silk-cotton maxi skirt set with silk lining' };
+  }
+  if (category === 'Skirt and top set' && /cotton spandex/.test(title) && /jersey/.test(fabric) && /dobby/.test(fabric)) {
+    return { phrase: 'Cotton Skirt & Top Set', detail: 'Cotton-spandex knit top and woven dobby skirt set for western casual wear' };
+  }
+  return { phrase: category ?? 'Co-ord Set', detail: getProductSummary(product) || product.description?.split(/(?<=[.!?])\s/)[0] || product.name };
+}
+
+export function getProductImageAlt(product: CatalogProduct, view = 'front view'): string {
+  return `${product.name} — ${getProductSearchDetails(product).phrase.toLowerCase()}, ${view}`;
+}

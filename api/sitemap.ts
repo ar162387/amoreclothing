@@ -38,7 +38,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
       const supabase = createClient(supabaseUrl, supabaseAnonKey);
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, created_at, image_front, image_back, images_other')
+        .select('id, slug, name, created_at, image_front, image_back, images_other')
         .eq('available', true);
 
       if (error) throw error;
@@ -57,12 +57,12 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
         });
       });
     } catch (error) {
-      // Degrade to the static routes rather than a hard failure — a sitemap
-      // missing products is far better than a sitemap that 500s outright.
       console.error('sitemap: failed to load products', error);
+      return res.status(503).setHeader('Cache-Control', 'no-store').setHeader('Retry-After', '60').send('Sitemap temporarily unavailable');
     }
   } else {
     console.error('sitemap: missing VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY');
+    return res.status(503).setHeader('Cache-Control', 'no-store').setHeader('Retry-After', '60').send('Sitemap temporarily unavailable');
   }
 
   const escapeXml = (value: string) => value.replace(/&/g, '&amp;');

@@ -1,78 +1,18 @@
 # RAR Studio (rarstudio.co)
 
-# Search engines
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Applebot
-Allow: /
-
-# AI answer engines / GEO crawlers
-User-agent: GPTBot
-Allow: /
-
-User-agent: ChatGPT-User
-Allow: /
-
-User-agent: OAI-SearchBot
-Allow: /
-
-User-agent: ClaudeBot
-Allow: /
-
-User-agent: anthropic-ai
-Allow: /
-
-User-agent: PerplexityBot
-Allow: /
-
-User-agent: Perplexity-User
-Allow: /
-
-User-agent: Google-Extended
-Allow: /
-
-User-agent: CCBot
-Allow: /
-
-# Social share-preview bots
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
-# Selected third-party scrapers that pull every image on every page
+# Third-party SEO crawlers remain blocked to avoid unnecessary image traffic.
 User-agent: AhrefsBot
 Disallow: /
 
 User-agent: SemrushBot
 Disallow: /
 
-User-agent: MJ12bot
-Disallow: /
-
-User-agent: DotBot
-Disallow: /
-
-User-agent: Bytespider
-Disallow: /
-
-User-agent: PetalBot
-Disallow: /
-
-User-agent: DataForSeoBot
-Allow: /
-
-# Everything else
+# Search engines, answer engines, and social-preview crawlers inherit this storefront access.
 User-agent: *
 Allow: /
 Disallow: /admin
 Disallow: /checkout
 Disallow: /login
-Disallow: /cart
+Disallow: /order/
 
 Sitemap: https://rarstudio.co/sitemap.xml

@@ -37,6 +37,10 @@ export interface CloudinaryTransformOptions {
   quality?: 'auto' | 'auto:best' | 'auto:good' | 'auto:eco';
   /** `limit` (default) never upscales; `fill` + a height would hard-crop (not used yet). */
   crop?: 'limit' | 'fit' | 'fill';
+  /** Required with `fill` for fixed-ratio assets such as social cards. */
+  height?: number;
+  /** `auto` keeps the garment/subject in frame when a fixed-ratio crop is requested. */
+  gravity?: 'auto' | 'center';
 }
 
 function spliceTransform(url: string, segment: string, transform: string): string {
@@ -57,12 +61,27 @@ function spliceTransform(url: string, segment: string, transform: string): strin
  * one (or is empty). Safe to call on any image field without checking first. */
 export function cloudinaryImageUrl(
   url: string | null | undefined,
-  { width, quality = 'auto', crop = 'limit' }: CloudinaryTransformOptions,
+  { width, quality = 'auto', crop = 'limit', height, gravity }: CloudinaryTransformOptions,
 ): string {
   if (!url) return '';
   if (!url.includes(UPLOAD_SEGMENT)) return url;
-  const transform = `f_auto,q_${quality},c_${crop},w_${snapWidth(width)},dpr_auto`;
+  const transform = [
+    'f_auto',
+    `q_${quality}`,
+    `c_${crop}`,
+    `w_${snapWidth(width)}`,
+    ...(height ? [`h_${height}`] : []),
+    ...(gravity ? [`g_${gravity}`] : []),
+    'dpr_auto',
+  ].join(',');
   return spliceTransform(url, UPLOAD_SEGMENT, transform);
+}
+
+/** Fixed Open Graph / Twitter card crop. Non-Cloudinary URLs pass through unchanged. */
+export function cloudinarySocialImage(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  if (!url.includes(UPLOAD_SEGMENT)) return url;
+  return spliceTransform(url, UPLOAD_SEGMENT, 'f_auto,q_auto,c_fill,w_1200,h_630,g_auto,dpr_1');
 }
 
 /** `srcset`-ready string across a list of widths. Returns undefined for non-Cloudinary URLs so the
@@ -87,4 +106,15 @@ export function cloudinaryVideoUrl(
   if (!url) return '';
   if (!url.includes(VIDEO_UPLOAD_SEGMENT)) return url;
   return spliceTransform(url, VIDEO_UPLOAD_SEGMENT, `q_auto,c_limit,w_${width}`);
+}
+
+/** Small, reusable crawler thumbnail. Do not fall back to an unbounded original.
+ * Fixed DPR avoids high-density clients requesting a larger derivative. */
+export function cloudinaryCrawlerThumbnail(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' || parsed.hostname !== 'res.cloudinary.com' || !parsed.pathname.includes(UPLOAD_SEGMENT)) return undefined;
+  } catch { return undefined; }
+  return spliceTransform(url, UPLOAD_SEGMENT, 'f_auto,q_auto:eco,c_limit,w_320,dpr_1');
 }

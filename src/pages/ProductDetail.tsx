@@ -12,19 +12,19 @@ import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/com
 import Autoplay from 'embla-carousel-autoplay';
 import { useCartStore, getCartTotals } from '@/store/cartStore';
 import { useSeo } from '@/hooks/use-seo';
-import { absoluteUrl, buildProductJsonLd, buildProductMetaDescription, SITE_NAME, SITE_TITLE, SITE_DESCRIPTION } from '@/lib/seo';
+import { absoluteUrl, buildProductJsonLd, buildProductMetaDescription, buildProductSearchTitle, SITE_TITLE, SITE_DESCRIPTION } from '@/lib/seo';
 import { getOptimizedImageUrl, buildSrcSet } from '@/lib/productImage';
 import { buildWhatsAppCheckoutUrl } from '@/lib/whatsappCheckout';
-import { getProductHighlights } from '@/lib/catalogContent';
+import { getProductHighlights, getProductImageAlt } from '@/lib/catalogContent';
 import { trackViewItem, trackAddToCart } from '@/lib/analytics';
-import { productIdFromRoute, productPath } from '@/lib/productUrl';
+import { productPath } from '@/lib/productUrl';
+import { cloudinarySocialImage } from '@/lib/cloudinary';
 
 const GALLERY_WIDTHS = [480, 640, 828, 1080, 1280, 1600];
 const GALLERY_SIZES = '(min-width: 1024px) 50vw, 100vw';
 
 const ProductDetail = () => {
-  const { id: routeValue } = useParams<{ id: string }>();
-  const id = routeValue ? productIdFromRoute(routeValue) : null;
+  const { slug } = useParams<{ slug: string }>();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedSize, setSelectedSize] = useState<string>('');
@@ -52,22 +52,24 @@ const ProductDetail = () => {
   // Called unconditionally (before the loading/not-found early returns below) per the rules of hooks —
   // falls back to generic brand copy until the product has loaded.
   useSeo({
-    title: product ? `${product.name} | ${SITE_NAME}` : SITE_TITLE,
+    title: product ? buildProductSearchTitle(product) : SITE_TITLE,
     description: product ? buildProductMetaDescription(product) : SITE_DESCRIPTION,
     canonicalPath: product ? productPath(product) : '/',
-    image: product?.image_front ? absoluteUrl(product.image_front) : undefined,
+    image: product?.image_front ? absoluteUrl(cloudinarySocialImage(product.image_front) || product.image_front) : undefined,
+    imageAlt: product ? getProductImageAlt(product) : undefined,
+    ogType: 'product',
     jsonLd: product ? buildProductJsonLd(product, absoluteUrl(productPath(product))) : undefined,
   });
 
   useEffect(() => {
     const fetchProduct = async () => {
-      if (!id) {
+      if (!slug) {
         setProduct(null);
         setLoading(false);
         return;
       }
       setLoading(true);
-      const { data, error } = await productsService.getProductById(id);
+      const { data, error } = await productsService.getProductBySlug(slug);
       if (error) {
         toast.error('Failed to load product');
         console.error(error);
@@ -85,7 +87,7 @@ const ProductDetail = () => {
     };
 
     fetchProduct();
-  }, [id]);
+  }, [slug]);
 
   // The cart entry for whatever size is currently selected (if this product+size is already in the
   // bag) — the single source of truth the Quantity control below stays synced to, at the store level,
@@ -215,7 +217,7 @@ const ProductDetail = () => {
                       src={getOptimizedImageUrl(imageUrl, 828)}
                       srcSet={buildSrcSet(imageUrl, GALLERY_WIDTHS)}
                       sizes={GALLERY_SIZES}
-                      alt={`${product.name} - View ${index + 1}`}
+                      alt={getProductImageAlt(product, `view ${index + 1}`)}
                       // Set imperatively, not via a JSX `fetchPriority` prop — @types/react
                       // already declares it (matching a future React version) but React 18's
                       // runtime doesn't recognize the camelCase prop yet, so passing it in JSX
@@ -383,7 +385,7 @@ const ProductDetail = () => {
                     src={getOptimizedImageUrl(imageUrl, 828)}
                     srcSet={buildSrcSet(imageUrl, GALLERY_WIDTHS)}
                     sizes={GALLERY_SIZES}
-                    alt={`${product.name} - View ${index + 1}`}
+                    alt={getProductImageAlt(product, `view ${index + 1}`)}
                     // See the mobile gallery's <img> above for why this is imperative, not JSX.
                     ref={(el) => el?.setAttribute('fetchpriority', index === 0 ? 'high' : 'auto')}
                     loading={index === 0 ? undefined : 'lazy'}

@@ -8,6 +8,8 @@ export interface UseSeoOptions {
   canonicalPath: string;
   /** Absolute image URL for social previews. Omit to leave the site-wide default og:image untouched. */
   image?: string;
+  imageAlt?: string;
+  ogType?: 'website' | 'product';
   /** One or more JSON-LD objects, each rendered as its own <script type="application/ld+json">. */
   jsonLd?: object | object[];
 }
@@ -57,7 +59,7 @@ function patchLink(rel: string, href: string) {
  * (from index.html's shared defaults) and gets patched then restored, or gets created fresh and removed,
  * so SPA navigation away from an SEO-aware page never leaks a stale title/description onto the next one.
  */
-export function useSeo({ title, description, canonicalPath, image, jsonLd }: UseSeoOptions) {
+export function useSeo({ title, description, canonicalPath, image, imageAlt, ogType = 'website', jsonLd }: UseSeoOptions) {
   const jsonLdKey = jsonLd ? JSON.stringify(jsonLd) : '';
 
   useEffect(() => {
@@ -69,6 +71,7 @@ export function useSeo({ title, description, canonicalPath, image, jsonLd }: Use
       patchMeta('meta[name="description"]', () => ({ name: 'description' }), description),
       patchMeta('meta[property="og:title"]', () => ({ property: 'og:title' }), title),
       patchMeta('meta[property="og:description"]', () => ({ property: 'og:description' }), description),
+      patchMeta('meta[property="og:type"]', () => ({ property: 'og:type' }), ogType),
       patchMeta('meta[property="og:url"]', () => ({ property: 'og:url' }), canonical),
       patchMeta('meta[name="twitter:title"]', () => ({ name: 'twitter:title' }), title),
       patchMeta('meta[name="twitter:description"]', () => ({ name: 'twitter:description' }), description),
@@ -77,13 +80,23 @@ export function useSeo({ title, description, canonicalPath, image, jsonLd }: Use
 
     if (image) {
       cleanups.push(patchMeta('meta[property="og:image"]', () => ({ property: 'og:image' }), image));
+      cleanups.push(patchMeta('meta[property="og:image:width"]', () => ({ property: 'og:image:width' }), '1200'));
+      cleanups.push(patchMeta('meta[property="og:image:height"]', () => ({ property: 'og:image:height' }), '630'));
       cleanups.push(patchMeta('meta[name="twitter:image"]', () => ({ name: 'twitter:image' }), image));
+      if (imageAlt) {
+        cleanups.push(patchMeta('meta[property="og:image:alt"]', () => ({ property: 'og:image:alt' }), imageAlt));
+        cleanups.push(patchMeta('meta[name="twitter:image:alt"]', () => ({ name: 'twitter:image:alt' }), imageAlt));
+      }
     }
 
+    // The universal first response owns these until React starts. Replace them with the same
+    // client-managed graph so SPA navigation never accumulates duplicate structured data.
+    document.querySelectorAll('script[type="application/ld+json"][data-rar-seo]').forEach((script) => script.remove());
     const jsonLdList = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];
     const scripts = jsonLdList.map((data) => {
       const script = document.createElement('script');
       script.type = 'application/ld+json';
+      script.dataset.rarSeo = 'client';
       script.textContent = JSON.stringify(data);
       document.head.appendChild(script);
       return script;
@@ -95,5 +108,5 @@ export function useSeo({ title, description, canonicalPath, image, jsonLd }: Use
       scripts.forEach((script) => script.remove());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, description, canonicalPath, image, jsonLdKey]);
+  }, [title, description, canonicalPath, image, imageAlt, ogType, jsonLdKey]);
 }

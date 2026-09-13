@@ -6,6 +6,7 @@ import { Product } from '@/services/products';
 import { useCartStore } from '@/store/cartStore';
 import { getOptimizedImageUrl, buildSrcSet } from '@/lib/productImage';
 import { trackAddToCart, trackSelectItem } from '@/lib/analytics';
+import { getProductImageAlt } from '@/lib/catalogContent';
 import { productPath } from '@/lib/productUrl';
 
 const LIST_NAME = 'Storefront Grid';
@@ -52,7 +53,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
               src={getOptimizedImageUrl(frontImage, 480)}
               srcSet={buildSrcSet(frontImage, GRID_WIDTHS)}
               sizes={GRID_SIZES}
-              alt={product.name}
+              alt={getProductImageAlt(product)}
               loading="lazy"
               decoding="async"
               className={`w-full h-full object-cover absolute inset-0 transition-opacity duration-500 ${
@@ -65,7 +66,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
               src={getOptimizedImageUrl(backImage, 480)}
               srcSet={buildSrcSet(backImage, GRID_WIDTHS)}
               sizes={GRID_SIZES}
-              alt={`${product.name} - back view`}
+              alt={getProductImageAlt(product, 'back view')}
               loading="lazy"
               decoding="async"
               className={`w-full h-full object-cover absolute inset-0 transition-opacity duration-500 ${

@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { cloudinaryImageUrl } from '../src/lib/cloudinary.js';
 import { productPath } from '../src/lib/productUrl.js';
+import { LANDING_PAGE_PATHS } from '../src/lib/landingPages.js';
 
 const SITE_URL = 'https://rarstudio.co';
 
@@ -28,6 +29,10 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     { loc: `${SITE_URL}/`, priority: '1.0' },
     { loc: `${SITE_URL}/shipping-returns`, priority: '0.5' },
     { loc: `${SITE_URL}/contact`, priority: '0.6' },
+    ...LANDING_PAGE_PATHS.map((path) => ({
+      loc: `${SITE_URL}${path}`,
+      priority: path.startsWith('/collections/') ? '0.8' : '0.6',
+    })),
   ];
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL;

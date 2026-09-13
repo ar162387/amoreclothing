@@ -13,6 +13,11 @@ import {
 } from '../src/lib/catalogContent.js';
 import { cloudinaryCrawlerThumbnail, cloudinaryImageUrl, cloudinarySocialImage } from '../src/lib/cloudinary.js';
 import { productIdFromRoute, productPath } from '../src/lib/productUrl.js';
+import {
+  HOME_EYEBROW, HOME_H1, SHOP_BY_TYPE_LINKS, SHIPPING_FAQS,
+  buildBreadcrumbJsonLd, buildFaqJsonLd, buildLandingPageJsonLd,
+  getLandingPage, selectLandingProducts,
+} from '../src/lib/landingPages.js';
 import type { Product, SizeGuide } from '../src/services/products.js';
 import type { ContactInfo, SiteMediaValue } from '../src/services/siteContent.js';
 
@@ -159,13 +164,25 @@ async function loadSiteContent(supabase: SupabaseClient): Promise<SiteContentRow
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const requestedPath = typeof req.query.path === 'string' ? req.query.path : '/';
   const routePath = requestedPath !== '/' ? requestedPath.replace(/\/+$/, '') : '/';
+  const productMatch = routePath.match(/^\/product\/([^/]+)$/);
+  const landingPage = getLandingPage(routePath);
+  const knownStaticPath = routePath === '/' || routePath === '/contact' || routePath === '/shipping-returns';
+
+  if (!productMatch && !landingPage && !knownStaticPath) {
+    res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=300');
+    return sendHtml(res, 404, renderPage({
+      title: `Page not found | ${SITE_NAME}`, description: SITE_DESCRIPTION, canonicalPath: routePath,
+      robots: 'noindex,nofollow', jsonLd: [],
+      bodyHtml: `<main><h1>Page not found</h1><p><a href="/">Return to ${SITE_NAME}</a></p></main>`,
+    }));
+  }
+
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
   if (!supabaseUrl || !supabaseAnonKey) return sendUnavailable(res);
   const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
   try {
-    const productMatch = routePath.match(/^\/product\/([^/]+)$/);
     if (productMatch) {
       const routeValue = productMatch[1];
       const legacyId = productIdFromRoute(routeValue);
@@ -211,15 +228,45 @@ ${images.map((src, index) => `<img src="${escapeHtml(src)}" alt="${escapeHtml(ge
     const shippingContent = rows.find((row) => row.page === 'shipping')?.content as { hero?: { title?: string; body?: string }; body?: string } | undefined;
     const sharedImage = firstImage(homeContent?.hero?.media);
 
+    if (landingPage) {
+      let selectedProducts: Product[] = [];
+      if (landingPage.productSlugs) {
+        const { data, error } = await supabase.from('products')
+          .select('id, slug, name, price, description, collection_id, image_front, image_back, images_other, sizes, available, featured, size_guide, fabric_care_id, created_at')
+          .in('slug', landingPage.productSlugs);
+        if (error) return sendUnavailable(res);
+        selectedProducts = selectLandingProducts(landingPage, (data ?? []) as Product[]);
+      }
+      const leadImage = selectedProducts[0]?.image_front || sharedImage;
+      const productList = landingPage.kind === 'collection' ? `<section><h2>Shop the edit</h2><ul>${selectedProducts.map((product) => {
+        const thumbnail = cloudinaryCrawlerThumbnail(product.image_front);
+        return `<li><a href="${escapeHtml(productPath(product))}">${thumbnail ? `<img src="${escapeHtml(thumbnail)}" alt="${escapeHtml(getProductImageAlt(product))}" width="320" />` : ''}${escapeHtml(product.name)}</a><p>PKR ${Number(product.price).toLocaleString()}</p><p>${product.available ? 'In stock' : 'Sold out'}</p>${product.description ? `<p>${escapeHtml(product.description)}</p>` : ''}</li>`;
+      }).join('')}</ul></section>` : '';
+      const faqSection = landingPage.faqs ? `<section><h2>Questions, answered</h2>${landingPage.faqs.map((faq) => `<article><h3>${escapeHtml(faq.question)}</h3><p>${escapeHtml(faq.answer)}</p></article>`).join('')}</section>` : '';
+      const jsonLd = [buildLandingPageJsonLd(landingPage, selectedProducts), buildBreadcrumbJsonLd(landingPage),
+        ...(landingPage.faqs ? [buildFaqJsonLd(landingPage.faqs)] : [])];
+      res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600');
+      return sendHtml(res, 200, renderPage({
+        title: landingPage.title, description: landingPage.description, canonicalPath: landingPage.path,
+        image: cloudinarySocialImage(leadImage), imageAlt: `${landingPage.h1} — RAR Studio Pakistan`, jsonLd,
+        bodyHtml: `<main><nav aria-label="Breadcrumb"><a href="/">Home</a> / <span>${escapeHtml(landingPage.h1)}</span></nav>
+<p>${escapeHtml(landingPage.eyebrow)}</p><h1>${escapeHtml(landingPage.h1)}</h1>
+${landingPage.paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('\n')}
+${productList}${faqSection}</main>`,
+      }));
+    }
+
     if (routePath === '/shipping-returns') {
       const shipping = { title: shippingContent?.hero?.title || SHIPPING_FALLBACK.title,
         body: shippingContent?.hero?.body || SHIPPING_FALLBACK.body };
       res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600');
       return sendHtml(res, 200, renderPage({
         title: `${shipping.title} | ${SITE_NAME}`, description: shipping.body, canonicalPath: '/shipping-returns',
-        image: cloudinarySocialImage(sharedImage), imageAlt: 'RAR Studio women’s western co-ord collection', jsonLd: [],
+        image: cloudinarySocialImage(sharedImage), imageAlt: 'RAR Studio women’s western co-ord collection',
+        jsonLd: [buildFaqJsonLd(SHIPPING_FAQS)],
         bodyHtml: `<main><h1>${escapeHtml(shipping.title)}</h1><p>${escapeHtml(shipping.body)}</p>
-${(shippingContent?.body || '').split('\n\n').filter(Boolean).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('\n')}</main>`,
+${(shippingContent?.body || '').split('\n\n').filter(Boolean).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('\n')}
+<section><h2>Shipping and returns at a glance</h2>${SHIPPING_FAQS.map((fact) => `<h3>${escapeHtml(fact.question)}</h3><p>${escapeHtml(fact.answer)}</p>`).join('')}</section></main>`,
       }));
     }
 
@@ -239,15 +286,6 @@ ${(shippingContent?.body || '').split('\n\n').filter(Boolean).map((paragraph) =>
       }));
     }
 
-    if (routePath !== '/') {
-      res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=300');
-      return sendHtml(res, 404, renderPage({
-        title: `Page not found | ${SITE_NAME}`, description: SITE_DESCRIPTION, canonicalPath: routePath,
-        robots: 'noindex,nofollow', jsonLd: [],
-        bodyHtml: `<main><h1>Page not found</h1><p><a href="/">Return to ${SITE_NAME}</a></p></main>`,
-      }));
-    }
-
     const hero = { ...HOME_FALLBACK, title: homeContent?.hero?.title || HOME_FALLBACK.title,
       body: homeContent?.hero?.body || HOME_FALLBACK.body };
     const contactInfo = { ...CONTACT_FALLBACK, ...(contactContent?.info ?? {}) };
@@ -262,7 +300,7 @@ ${(shippingContent?.body || '').split('\n\n').filter(Boolean).map((paragraph) =>
       title: SITE_TITLE, description: SITE_DESCRIPTION, canonicalPath: '/', image: socialImage,
       imageAlt: 'RAR Studio women’s western co-ord collection in Pakistan',
       jsonLd: [buildOrganizationJsonLd(contactInfo), buildWebsiteJsonLd(), buildCatalogImageJsonLd(productLinks)],
-      bodyHtml: `<main><h1>${escapeHtml(hero.title)}</h1><p>${escapeHtml(hero.body)}</p><p>${escapeHtml(ENTITY_DESCRIPTION)}</p>
+      bodyHtml: `<main><p>${escapeHtml(HOME_EYEBROW)}</p><h1>${escapeHtml(HOME_H1)}</h1><p>${escapeHtml(hero.body)}</p><p>${escapeHtml(ENTITY_DESCRIPTION)}</p>
 <h2>${escapeHtml(COLLECTION_TITLE)}</h2><p>${escapeHtml(COLLECTION_INTRO)}</p><ul>
 ${productLinks.map((product) => {
   const thumbnail = cloudinaryCrawlerThumbnail(product.image_front);
@@ -271,7 +309,8 @@ ${productLinks.map((product) => {
 ${buildShoppingSections(productLinks).map((section) => `<section id="${section.id}"><h2>${escapeHtml(section.title)}</h2><p>${escapeHtml(section.body)}</p><ul>${section.products.map((product) => `<li><a href="${escapeHtml(productPath(product))}">${escapeHtml(product.name)}</a><p>${escapeHtml(getProductSummary(product))}</p></li>`).join('')}</ul></section>`).join('')}
 ${productLinks.length ? `<h2>${escapeHtml(STYLING_TITLE)}</h2><p>${escapeHtml(STYLING_BODY)}</p>` : ''}
 <h2>Shop by Style</h2><ul>${hero.tiles.map((tile) => `<li>${escapeHtml(tile.eyebrow)}: ${escapeHtml(tile.title)}</li>`).join('')}</ul>
-<p><a href="/contact">Contact ${SITE_NAME}</a></p></main>`,
+<h2>Shop by type</h2><ul>${SHOP_BY_TYPE_LINKS.map((item) => `<li><a href="${item.path}">${escapeHtml(item.label)}</a></li>`).join('')}</ul>
+<p><a href="/about">About ${SITE_NAME}</a> · <a href="/faq">Co-ord sets FAQ</a> · <a href="/contact">Contact ${SITE_NAME}</a></p></main>`,
     }));
   } catch (error) {
     console.error('prerender failed', error);

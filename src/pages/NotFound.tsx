@@ -7,9 +7,8 @@ const NotFound = () => {
   useEffect(() => {
     console.error("404 Error: User attempted to access non-existent route:", location.pathname);
 
-    // The SPA rewrite (vercel.json) serves every unmatched path as a 200 index.html, so this is
-    // the only signal search engines get that the page isn't real content — without it, a
-    // JS-rendering crawler could still index this as a thin/duplicate "Page not found" page.
+    // Client-side navigation cannot change the HTTP status, so keep the document noindexed too.
+    // Direct public requests are handled by middleware/prerender and receive a real 404 response.
     const meta = document.createElement('meta');
     meta.name = 'robots';
     meta.content = 'noindex, nofollow';

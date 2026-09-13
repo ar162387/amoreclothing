@@ -5,6 +5,7 @@ import { useSitePage } from '@/contexts/SiteContentContext';
 import { useSeo } from '@/hooks/use-seo';
 import { absoluteUrl } from '@/lib/seo';
 import { cloudinarySocialImage } from '@/lib/cloudinary';
+import { buildFaqJsonLd, SHIPPING_FAQS } from '@/lib/landingPages';
 
 /**
  * Standalone "Shipping, Exchange & Return" page. Content (title + body) is fully admin-editable
@@ -27,6 +28,7 @@ const ShippingReturns = () => {
     canonicalPath: '/shipping-returns',
     image: socialImage ? absoluteUrl(cloudinarySocialImage(socialImage.url) || socialImage.url) : undefined,
     imageAlt: 'RAR Studio women’s western co-ord collection',
+    jsonLd: buildFaqJsonLd(SHIPPING_FAQS),
   });
 
   const paragraphs = shipping.body.split('\n\n').filter(Boolean);
@@ -70,6 +72,18 @@ const ShippingReturns = () => {
                 );
               })}
             </div>
+
+            <section className="mt-14 border-t border-border pt-10" aria-labelledby="shipping-facts">
+              <h2 id="shipping-facts" className="mb-6 font-serif text-2xl font-light">Shipping and returns at a glance</h2>
+              <dl className="space-y-5">
+                {SHIPPING_FAQS.map((fact) => (
+                  <div key={fact.question}>
+                    <dt className="text-sm font-medium">{fact.question}</dt>
+                    <dd className="mt-1 text-sm font-light leading-relaxed text-muted-foreground">{fact.answer}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
           </div>
         </section>
       </main>

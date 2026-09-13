@@ -15,6 +15,7 @@ import Contact from "./pages/Contact";
 import Checkout from "./pages/Checkout";
 import OrderStatus from "./pages/OrderStatus";
 import NotFound from "./pages/NotFound";
+import SeoLandingPage from "./pages/SeoLandingPage";
 import Login from "./pages/Login";
 
 import ScrollToTop from "@/components/ScrollToTop";
@@ -61,6 +62,12 @@ const App = () => (
               <Route path="/product/:slug" element={<ProductDetail />} />
               <Route path="/shipping-returns" element={<ShippingReturns />} />
               <Route path="/contact" element={<Contact />} />
+              <Route path="/about" element={<SeoLandingPage />} />
+              <Route path="/faq" element={<SeoLandingPage />} />
+              <Route path="/collections/western-co-ord-sets" element={<SeoLandingPage />} />
+              <Route path="/collections/skirt-and-top-sets" element={<SeoLandingPage />} />
+              <Route path="/collections/silk-satin-co-ords" element={<SeoLandingPage />} />
+              <Route path="/collections/stillness-i" element={<SeoLandingPage />} />
               <Route path="/checkout" element={<Checkout />} />
               {/* Static (not lazy) imports — these are on the money path, and a lazy chunk that
                   fails to load after a successful charge would be a support ticket. */}

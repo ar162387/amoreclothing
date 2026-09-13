@@ -12,6 +12,7 @@ import { buildShoppingSections, COLLECTION_INTRO, COLLECTION_TITLE, getProductSu
 import { trackViewItemList } from '@/lib/analytics';
 import { productPath } from '@/lib/productUrl';
 import { cloudinarySocialImage } from '@/lib/cloudinary';
+import { HOME_EYEBROW, HOME_H1, SHOP_BY_TYPE_LINKS } from '@/lib/landingPages';
 
 const Index = () => {
   const home = useSitePage('home');
@@ -59,10 +60,10 @@ const Index = () => {
         <div className="relative container mx-auto px-6">
           <div className="max-w-xl">
             <p className="text-xs tracking-[0.3em] uppercase mb-4 text-background/80">
-              {home.hero.eyebrow}
+              {HOME_EYEBROW}
             </p>
             <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl font-light leading-tight mb-6 text-background">
-              {home.hero.title}
+              {HOME_H1}
             </h1>
             <p className="text-base font-light leading-relaxed mb-8 text-background/80 max-w-md">
               {home.hero.body}
@@ -145,6 +146,25 @@ const Index = () => {
           </div>
         </section>
       )}
+
+      <section className="border-y border-border bg-background py-14 lg:py-16">
+        <div className="container mx-auto px-6">
+          <div className="mb-8 flex items-end justify-between gap-6">
+            <div>
+              <p className="mb-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">Discover</p>
+              <h2 className="font-serif text-3xl font-light">Shop by type</h2>
+            </div>
+            <Link to="/faq" className="hidden text-sm underline underline-offset-4 hover:text-muted-foreground sm:inline">Co-ord FAQ</Link>
+          </div>
+          <div className="grid gap-px overflow-hidden border border-border bg-border sm:grid-cols-2 lg:grid-cols-4">
+            {SHOP_BY_TYPE_LINKS.map((item) => (
+              <Link key={item.path} to={item.path} className="bg-background p-6 font-serif text-xl font-light transition-colors hover:bg-secondary">
+                {item.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* Category Tiles */}
       <section className="py-20 lg:py-28 bg-secondary">

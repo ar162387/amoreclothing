@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Instagram, Mail, Phone } from 'lucide-react';
 import { useSitePage } from '@/contexts/SiteContentContext';
 import { toWaNumber } from '@/lib/siteContent';
+import { SHOP_BY_TYPE_LINKS } from '@/lib/landingPages';
 
 const Footer = () => {
   const contact = useSitePage('contact');
@@ -9,7 +10,7 @@ const Footer = () => {
   return (
     <footer className="bg-foreground text-background">
       <div className="container mx-auto px-6 py-16 lg:py-20">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12 lg:gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-8">
           {/* Brand */}
           <div className="lg:col-span-1">
             <img
@@ -24,6 +25,17 @@ const Footer = () => {
             </p>
           </div>
 
+          <div>
+            <h3 className="text-xs font-medium tracking-widest uppercase mb-6">Shop by type</h3>
+            <nav className="flex flex-col gap-3">
+              {SHOP_BY_TYPE_LINKS.map((item) => (
+                <Link key={item.path} to={item.path} className="text-sm font-light opacity-70 hover:opacity-100 transition-opacity">
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+
           {/* Information */}
           <div>
             <h3 className="text-xs font-medium tracking-widest uppercase mb-6">Information</h3>
@@ -33,6 +45,12 @@ const Footer = () => {
               </Link>
               <Link to="/shipping-returns" className="text-sm font-light opacity-70 hover:opacity-100 transition-opacity">
                 Shipping & Returns
+              </Link>
+              <Link to="/faq" className="text-sm font-light opacity-70 hover:opacity-100 transition-opacity">
+                FAQ
+              </Link>
+              <Link to="/about" className="text-sm font-light opacity-70 hover:opacity-100 transition-opacity">
+                About RAR Studio
               </Link>
             </nav>
           </div>
